@@ -289,3 +289,7 @@ body.touch-mode .minimap { width: 96px; height: 96px; top: 60px; right: 10px; }
     color: var(--muted); font-size: 12px; letter-spacing: 4px; font-weight: 700;
   }
 }
+
+
+/* Cinematic color grade on the 3D canvas (cheap, GPU-composited) */
+#gl { filter: saturate(1.15) contrast(1.07) brightness(1.02); }

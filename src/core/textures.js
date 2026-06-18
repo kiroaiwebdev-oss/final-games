@@ -92,11 +92,32 @@ function truckPaintCanvas() {
   return c;
 }
 
+function facadeCanvas() {
+  const size = 256;
+  const c = makeCanvas(size);
+  try {
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#cfcfcf"; ctx.fillRect(0, 0, size, size);      // bright base (keeps building colour)
+    noise(ctx, size, 1800, 0.16, [[200, 200, 200], [225, 225, 225], [185, 185, 190]]);
+    // floor slab lines (horizontal) — defines storeys
+    ctx.fillStyle = "rgba(70,70,78,0.45)";
+    for (let y = 0; y < size; y += 26) ctx.fillRect(0, y, size, 2);
+    // vertical pillars
+    ctx.fillStyle = "rgba(90,90,98,0.28)";
+    for (let x = 0; x < size; x += 22) ctx.fillRect(x, 0, 2, size);
+    // soft top-edge ambient occlusion
+    ctx.fillStyle = "rgba(20,20,28,0.25)";
+    ctx.fillRect(0, 0, size, 8);
+  } catch (e) {}
+  return c;
+}
+
 export function makeTextures(renderer) {
   return {
     ground: renderer.createTexture(groundCanvas()),
     asphalt: renderer.createTexture(asphaltCanvas()),
     shadow: renderer.createTexture(shadowCanvas()),
     truckPaint: renderer.createTexture(truckPaintCanvas()),
+    facade: renderer.createTexture(facadeCanvas()),
   };
 }

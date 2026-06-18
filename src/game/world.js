@@ -50,6 +50,15 @@ export class World {
     return new Geometry();
   }
 
+  _flushB(geo) {
+    if (geo.indices.length === 0) return new Geometry();
+    geo.planarUV(3.5);                 // wrap the facade texture across the facades
+    const m = new Mesh(this.gl, geo);
+    m.texture = this.tex.facade || null;
+    this.staticMeshes.push(m);
+    return new Geometry();
+  }
+
   isOnRoad(x, z) {
     const b = this.map.blockSize;
     const hw = this.map.roadWidth / 2 + 2;
@@ -164,12 +173,12 @@ export class World {
           bGeo.merge(parts.body, tr);
           winGeo.merge(parts.windows, tr);
           this.obstacles.push({ x: ox, z: oz, hw: w / 2, hd: d / 2 });
-          if (bGeo.positions.length / 3 > VERT_LIMIT) bGeo = this._flush(bGeo);
+          if (bGeo.positions.length / 3 > VERT_LIMIT) bGeo = this._flushB(bGeo);
           if (winGeo.positions.length / 3 > VERT_LIMIT) winGeo = this._flushWin(winGeo);
         }
       }
     }
-    this._flush(bGeo);
+    this._flushB(bGeo);
     this._flushWin(winGeo);
 
     // --- Water: park pond + riverfront beyond the western border (visual) ---
