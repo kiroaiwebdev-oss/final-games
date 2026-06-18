@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Cargo Hauler — Truck Simulator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="gl"></canvas>
+
+    <!-- Loading screen -->
+    <div id="loading" class="screen">
+      <div class="loader-box">
+        <div class="logo">CARGO HAULER</div>
+        <div class="logo-sub">TRUCK SIMULATOR</div>
+        <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+        <div id="loading-tip" class="tip">Loading...</div>
+      </div>
+    </div>
+
+    <!-- HUD (in-game overlay) -->
+    <div id="hud" class="hidden">
+      <div class="hud-top-left">
+        <div class="stat money"><span class="ic">$</span><span id="hud-money">0</span></div>
+        <div class="stat level">LV <span id="hud-level">1</span>
+          <div class="xpbar"><div id="hud-xp" class="xpbar-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="hud-top-right">
+        <button id="btn-pause" class="icon-btn">II</button>
+      </div>
+
+      <div class="hud-mission" id="hud-mission">
+        <div class="mission-title" id="mission-title">No active job</div>
+        <div class="mission-sub" id="mission-sub"></div>
+        <div class="mission-dist" id="mission-dist"></div>
+      </div>
+
+      <div class="hud-gauges">
+        <div class="gauge">
+          <div class="gauge-label">FUEL</div>
+          <div class="bar"><div id="fuel-bar" class="bar-fill fuel"></div></div>
+        </div>
+        <div class="gauge">
+          <div class="gauge-label">DAMAGE</div>
+          <div class="bar"><div id="damage-bar" class="bar-fill damage"></div></div>
+        </div>
+      </div>
+
+      <div class="hud-speedo">
+        <div id="speed-val" class="speed-val">0</div>
+        <div class="speed-unit">km/h</div>
+        <div id="gear-val" class="gear-val">D</div>
+      </div>
+
+      <!-- Mobile touch controls -->
+      <div id="touch-controls" class="hidden">
+        <div class="pad-left">
+          <button class="tbtn" data-key="ArrowLeft">&#8592;</button>
+          <button class="tbtn" data-key="ArrowRight">&#8594;</button>
+        </div>
+        <div class="pad-right">
+          <button class="tbtn brake" data-key="ArrowDown">BRK</button>
+          <button class="tbtn gas" data-key="ArrowUp">GAS</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast / popups -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Screens (menus) get injected by ui modules -->
+    <div id="overlay" class="overlay hidden"></div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
