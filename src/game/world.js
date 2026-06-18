@@ -58,30 +58,61 @@ export class World {
     const groundGeo = plane(map.half * 2 + 200, map.env.ground, 24);
     this.staticMeshes.push(new Mesh(gl, groundGeo));
 
-    // --- Roads (grid) ---
+    // --- Roads (grid) with markings, curbs, crosswalks ---
     let roadGeo = new Geometry();
-    const roadColor = [0.18, 0.18, 0.2];
-    const lineColor = [0.85, 0.82, 0.5];
+    const roadColor = [0.13, 0.13, 0.15];
+    const yellow = [0.86, 0.72, 0.2];
+    const white = [0.9, 0.9, 0.92];
     const b = map.blockSize;
     const rw = map.roadWidth;
     const extent = map.half;
-    const y = 0.03;
+    const y = 0.03, yMark = 0.05;
+
+    // horizontal quad helper (centered, spans w in X and d in Z)
+    const hquad = (geo, cx, cz, w, d, color, yy) => {
+      const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2;
+      geo.quad([x0, yy, z0], [x1, yy, z0], [x1, yy, z1], [x0, yy, z1], [0, 1, 0], color);
+    };
+
     for (let g = -extent; g <= extent; g += b) {
-      // road along X (varying x, fixed z=g)
-      roadGeo.quad([-extent, y, g - rw / 2], [extent, y, g - rw / 2],
-        [extent, y, g + rw / 2], [-extent, y, g + rw / 2], [0, 1, 0], roadColor);
-      // road along Z (fixed x=g)
-      roadGeo.quad([g - rw / 2, y, -extent], [g - rw / 2, y, extent],
-        [g + rw / 2, y, extent], [g + rw / 2, y, -extent], [0, 1, 0], roadColor);
+      // asphalt strips
+      hquad(roadGeo, 0, g, extent * 2, rw, roadColor, y);            // X road
+      hquad(roadGeo, g, 0, rw, extent * 2, roadColor, y);            // Z road
+      // white edge lines (both sides)
+      hquad(roadGeo, 0, g - rw / 2 + 0.4, extent * 2, 0.25, white, yMark);
+      hquad(roadGeo, 0, g + rw / 2 - 0.4, extent * 2, 0.25, white, yMark);
+      hquad(roadGeo, g - rw / 2 + 0.4, 0, 0.25, extent * 2, white, yMark);
+      hquad(roadGeo, g + rw / 2 - 0.4, 0, 0.25, extent * 2, white, yMark);
+      // dashed yellow center lines
+      for (let t = -extent; t < extent; t += 9) {
+        hquad(roadGeo, t + 2.25, g, 4.5, 0.32, yellow, yMark + 0.005);
+        hquad(roadGeo, g, t + 2.25, 0.32, 4.5, yellow, yMark + 0.005);
+      }
     }
-    // dashed center lines along X roads
-    for (let g = -extent; g <= extent; g += b) {
-      for (let x = -extent; x < extent; x += 8) {
-        roadGeo.quad([x, y + 0.01, g - 0.3], [x + 4, y + 0.01, g - 0.3],
-          [x + 4, y + 0.01, g + 0.3], [x, y + 0.01, g + 0.3], [0, 1, 0], lineColor);
+
+    // zebra crosswalks at every intersection
+    const barsAlongX = (cx, cz) => { for (let k = 0; k < 6; k++) hquad(roadGeo, cx, cz - 1.4 + k * 0.56, rw - 1.4, 0.34, white, yMark + 0.01); };
+    const barsAlongZ = (cx, cz) => { for (let k = 0; k < 6; k++) hquad(roadGeo, cx - 1.4 + k * 0.56, cz, 0.34, rw - 1.4, white, yMark + 0.01); };
+    for (let gx = -extent; gx <= extent; gx += b) {
+      for (let gz = -extent; gz <= extent; gz += b) {
+        barsAlongX(gx, gz + rw / 2 + 1.3);  // north approach
+        barsAlongX(gx, gz - rw / 2 - 1.3);  // south approach
+        barsAlongZ(gx + rw / 2 + 1.3, gz);  // east approach
+        barsAlongZ(gx - rw / 2 - 1.3, gz);  // west approach
       }
     }
     this.staticMeshes.push(new Mesh(gl, roadGeo));
+
+    // --- Raised footpath / curb pads per block (frames the roads, fills empty land) ---
+    const padGeo = new Geometry();
+    const padColor = [0.45, 0.46, 0.49];
+    const padSize = b - rw - 1.5;
+    for (let cx = -extent + b / 2; cx < extent; cx += b) {
+      for (let cz = -extent + b / 2; cz < extent; cz += b) {
+        padGeo.merge(box(padSize, 0.18, padSize, padColor, [cx, 0.09, cz]));
+      }
+    }
+    this.staticMeshes.push(new Mesh(gl, padGeo));
 
     // --- Buildings (in blocks, off the roads) ---
     let bGeo = new Geometry();
@@ -102,7 +133,7 @@ export class World {
           // keep clear around spawn / depot
           if (Math.hypot(ox - this.spawn[0], oz - this.spawn[2]) < 24) continue;
           const color = palette[Math.floor(rng() * palette.length)];
-          bGeo.merge(buildBuilding(w, h, d, color), translation(ox, 0, oz));
+          bGeo.merge(buildBuilding(w, h, d, color), translation(ox, 0.18, oz));
           this.obstacles.push({ x: ox, z: oz, hw: w / 2, hd: d / 2 });
           if (bGeo.positions.length / 3 > VERT_LIMIT) bGeo = this._flush(bGeo);
         }

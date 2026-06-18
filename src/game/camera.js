@@ -6,8 +6,8 @@ export class ChaseCamera {
     this.pos = [0, 12, -20];
     this.look = [0, 2, 0];
     this.mode = 0; // 0 = chase, 1 = high/far
-    this.distances = [16, 26];
-    this.heights = [7.5, 14];
+    this.distances = [20, 30];
+    this.heights = [8.5, 15];
   }
 
   toggle() { this.mode = (this.mode + 1) % this.distances.length; }

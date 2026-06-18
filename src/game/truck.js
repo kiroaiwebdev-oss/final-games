@@ -131,7 +131,7 @@ export class Truck {
 
     // wheels
     for (const w of this.wheels) {
-      const steer = (w.pos[2] > 1 ? this.steerAngle * 0.6 : 0);
+      const steer = w.steer ? this.steerAngle * 0.6 : 0;
       const local = mat4.compose(w.pos, [0, steer, 0], [1, 1, 1]);
       const spin = mat4.rotationX(-this.wheelSpin);
       const wm = mat4.multiply(mat4.multiply(model, local), spin);
