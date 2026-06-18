@@ -57,7 +57,7 @@ function getEl(id) { return (elements[id] = elements[id] || makeEl(id)); }
 global.document = {
   getElementById: getEl,
   createElement: () => makeEl("dyn"),
-  body: { appendChild() {}, removeChild() {} },
+  body: { appendChild() {}, removeChild() {}, classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } } },
   querySelector: () => makeEl("q"),
 };
 global.window = {

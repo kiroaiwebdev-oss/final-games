@@ -10,7 +10,8 @@ import { Truck } from "./truck.js";
 import { ChaseCamera } from "./camera.js";
 import { Traffic } from "./traffic.js";
 import { Particles } from "./particles.js";
-import { buildMarker, buildArrow, buildBeam, buildUnderglow } from "./models.js";
+import { buildMarker, buildArrow, buildBeam, buildUnderglow, buildSky, buildShadowQuad } from "./models.js";
+import { makeTextures } from "../core/textures.js";
 
 import { Profile } from "../systems/profile.js";
 import { MissionManager } from "../systems/missions.js";
@@ -53,8 +54,10 @@ export class Game {
     await this.profile.load();
     this.sfx.setMuted(this.profile.data.settings.muted);
 
+    this.tex = makeTextures(this.renderer);
+
     this.map = getMap("indus_city");
-    this.world = new World(gl, this.map);
+    this.world = new World(gl, this.map, this.tex);
     this.mission = new MissionManager(this.world);
     this.depot = this.world.hubs.find((h) => h.name === DEPOT_NAME) || this.world.hubs[0];
 
@@ -77,6 +80,9 @@ export class Game {
     this.beamMesh = new Mesh(gl, buildBeam());
     this.underglowMesh = new Mesh(gl, buildUnderglow());
     this.roofbarMesh = new Mesh(gl, box(2.0, 0.2, 0.5, [1, 1, 1], [0, 3.8, 4.05]));
+    this.skyMesh = new Mesh(gl, buildSky());
+    this.shadowMesh = new Mesh(gl, buildShadowQuad());
+    this.shadowMesh.texture = this.tex.shadow || null;
 
     this._initVehicleState();
 
@@ -540,7 +546,11 @@ export class Game {
   render() {
     const r = this.renderer;
     this.env.apply(r);
-    r.beginFrame(this.cam.viewMatrix(), 62);
+    r.beginFrame(this.cam.viewMatrix(), 62, this.cam.pos);
+
+    // gradient sky dome (follows camera, tinted by current sky colour)
+    const skyM = mat4.compose([this.cam.pos[0], 0, this.cam.pos[2]], [0, 0, 0], [1000, 520, 1000]);
+    r.draw(this.skyMesh, skyM, { unlit: true, fog: 0, writeDepth: false, tint: r.sky });
 
     const I = mat4.identity();
     for (const m of this.world.staticMeshes) r.draw(m, I);
@@ -551,6 +561,7 @@ export class Game {
       }
     }
 
+    this.drawShadows();
     this.traffic.render(r);
 
     const model = this.truck.modelMatrix();
@@ -576,6 +587,16 @@ export class Game {
     this.particles.render(r);
     this.renderMarkers();
     this.env.renderOverlay();
+  }
+
+  drawShadows() {
+    const t = this.truck;
+    this._shadow(t.pos[0], t.pos[2], t.heading, 5.6, 15.5);
+    for (const s of this.traffic.shadowList()) this._shadow(s.x, s.z, s.h, s.r * 1.05, s.r * 1.7);
+  }
+  _shadow(x, z, h, sx, sz) {
+    const m = mat4.compose([x, 0.06, z], [0, h, 0], [sx, 1, sz]);
+    this.renderer.draw(this.shadowMesh, m, { unlit: true, alpha: 0.38, writeDepth: false, tint: [0, 0, 0] });
   }
 
   renderMarkers() {

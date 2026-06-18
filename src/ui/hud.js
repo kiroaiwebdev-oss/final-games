@@ -23,8 +23,9 @@ export class HUD {
   show(showTouch) {
     this.el.hud.classList.remove("hidden");
     this.el.touch.classList.toggle("hidden", !showTouch);
+    document.body.classList.toggle("touch-mode", !!showTouch);
   }
-  hide() { this.el.hud.classList.add("hidden"); }
+  hide() { this.el.hud.classList.add("hidden"); document.body.classList.remove("touch-mode"); }
 
   setProfile(profile) {
     this.el.money.textContent = profile.money.toLocaleString();

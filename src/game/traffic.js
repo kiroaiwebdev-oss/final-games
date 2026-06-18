@@ -102,6 +102,14 @@ export class Traffic {
   }
 
   // Returns the nearest police vehicle within range (for siren flavor), or null.
+  // Transforms for ground contact shadows (drawn by the game).
+  shadowList() {
+    return this.vehicles.map((v) => {
+      const p = this._pos(v);
+      return { x: p[0], z: p[2], h: this._heading(v), r: v.type.radius };
+    });
+  }
+
   render(renderer) {
     for (const v of this.vehicles) {
       const pos = this._pos(v);

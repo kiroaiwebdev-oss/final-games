@@ -218,3 +218,43 @@ button { font-family: inherit; cursor: pointer; }
   .hud-speedo { width: 92px; height: 92px; bottom: calc(108px + var(--safe-b)); right: calc(20px + var(--safe-r)); }
   .hud-gauges { bottom: calc(112px + var(--safe-b)); width: 150px; }
 }
+
+
+/* ============================================================
+   TOUCH / MOBILE layout — keep HUD clear of the control pads
+   ============================================================ */
+body.touch-mode .hud-gauges {
+  /* move fuel/damage to top-left, stacked under the money/level chips */
+  bottom: auto; left: calc(12px + var(--safe-l));
+  top: calc(60px + env(safe-area-inset-top, 0px));
+  width: clamp(124px, 32vw, 165px); gap: 6px;
+}
+body.touch-mode .hud-speedo {
+  /* center it and lift it ABOVE the bottom control pads so nothing overlaps */
+  left: 50%; right: auto; transform: translateX(-50%);
+  bottom: calc(118px + var(--safe-b));
+  width: clamp(76px, 19vw, 96px); height: clamp(76px, 19vw, 96px);
+  border-width: 2px;
+}
+body.touch-mode .speed-val { font-size: clamp(24px, 7vw, 32px); }
+body.touch-mode .speed-unit { font-size: 9px; }
+body.touch-mode .gear-val { bottom: 11px; font-size: 12px; }
+
+body.touch-mode .hud-mission { max-width: 56vw; min-width: 0; padding: 7px 12px; }
+body.touch-mode .mission-title { font-size: 12px; }
+body.touch-mode .mission-sub { font-size: 10px; }
+body.touch-mode .hud-top-left { gap: 6px; }
+body.touch-mode .stat { padding: 6px 10px; font-size: 14px; border-radius: 12px; }
+body.touch-mode .icon-btn { width: 42px; height: 42px; }
+body.touch-mode .clock { padding: 7px 10px; font-size: 12px; }
+
+/* very small phones in portrait: shrink controls so corners stay clear */
+@media (max-width: 380px) {
+  .tbtn { width: 58px; height: 58px; font-size: 24px; }
+  #touch-controls .pad { gap: 12px; bottom: calc(18px + var(--safe-b)); }
+}
+/* landscape phones: pads lower & speedo nudged up to avoid the gas button */
+@media (max-height: 430px) and (orientation: landscape) {
+  body.touch-mode .hud-speedo { bottom: calc(96px + var(--safe-b)); }
+  body.touch-mode .hud-gauges { top: calc(54px + env(safe-area-inset-top,0px)); }
+}

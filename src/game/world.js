@@ -1,5 +1,5 @@
 // Generates a drivable world from a map descriptor.
-import { Geometry, plane, box, Mesh } from "../core/mesh.js";
+import { Geometry, plane, planeTiled, box, Mesh } from "../core/mesh.js";
 import {
   buildBuilding, buildTree, buildLamp, buildCone, buildFuelStation,
   buildBarrier, buildBooth, buildSpeedBreaker,
@@ -18,9 +18,10 @@ function mulberry32(seed) {
 const VERT_LIMIT = 60000;
 
 export class World {
-  constructor(gl, map) {
+  constructor(gl, map, tex) {
     this.gl = gl;
     this.map = map;
+    this.tex = tex || {};
     this.staticMeshes = [];   // drawn with identity transform
     this.instanced = [];      // { mesh, instances:[{x,y,z,rot,scale}] }
     this.obstacles = [];      // { x, z, hw, hd } AABB (top-down)
@@ -58,13 +59,15 @@ export class World {
     const rng = mulberry32(map.seed || 1);
     const gl = this.gl;
 
-    // --- Ground ---
-    const groundGeo = plane(map.half * 2 + 200, map.env.ground, 24);
-    this.staticMeshes.push(new Mesh(gl, groundGeo));
+    // --- Ground (tiled grass/dirt texture) ---
+    const groundGeo = planeTiled(map.half * 2 + 200, [1, 1, 1], 24, 16);
+    const groundMesh = new Mesh(gl, groundGeo);
+    groundMesh.texture = this.tex.ground || null;
+    this.staticMeshes.push(groundMesh);
 
-    // --- Roads (grid) with markings, curbs, crosswalks ---
+    // --- Roads (grid): textured asphalt + separate markings ---
+    let asphaltGeo = new Geometry();
     let roadGeo = new Geometry();
-    const roadColor = [0.13, 0.13, 0.15];
     const yellow = [0.86, 0.72, 0.2];
     const white = [0.9, 0.9, 0.92];
     const b = map.blockSize;
@@ -72,16 +75,21 @@ export class World {
     const extent = map.half;
     const y = 0.03, yMark = 0.05;
 
-    // horizontal quad helper (centered, spans w in X and d in Z)
     const hquad = (geo, cx, cz, w, d, color, yy) => {
       const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2;
       geo.quad([x0, yy, z0], [x1, yy, z0], [x1, yy, z1], [x0, yy, z1], [0, 1, 0], color);
     };
+    // textured variant: UV tiles every `tile` world units
+    const hquadTex = (geo, cx, cz, w, d, yy, tile) => {
+      const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2;
+      const uv = (x, z) => [x / tile, z / tile];
+      geo.quad([x0, yy, z0], [x1, yy, z0], [x1, yy, z1], [x0, yy, z1], [0, 1, 0], [1, 1, 1],
+        [uv(x0, z0), uv(x1, z0), uv(x1, z1), uv(x0, z1)]);
+    };
 
     for (let g = -extent; g <= extent; g += b) {
-      // asphalt strips
-      hquad(roadGeo, 0, g, extent * 2, rw, roadColor, y);            // X road
-      hquad(roadGeo, g, 0, rw, extent * 2, roadColor, y);            // Z road
+      hquadTex(asphaltGeo, 0, g, extent * 2, rw, y, 6);   // X road asphalt
+      hquadTex(asphaltGeo, g, 0, rw, extent * 2, y, 6);   // Z road asphalt
       // white edge lines (both sides)
       hquad(roadGeo, 0, g - rw / 2 + 0.4, extent * 2, 0.25, white, yMark);
       hquad(roadGeo, 0, g + rw / 2 - 0.4, extent * 2, 0.25, white, yMark);
@@ -99,12 +107,15 @@ export class World {
     const barsAlongZ = (cx, cz) => { for (let k = 0; k < 6; k++) hquad(roadGeo, cx - 1.4 + k * 0.56, cz, 0.34, rw - 1.4, white, yMark + 0.01); };
     for (let gx = -extent; gx <= extent; gx += b) {
       for (let gz = -extent; gz <= extent; gz += b) {
-        barsAlongX(gx, gz + rw / 2 + 1.3);  // north approach
-        barsAlongX(gx, gz - rw / 2 - 1.3);  // south approach
-        barsAlongZ(gx + rw / 2 + 1.3, gz);  // east approach
-        barsAlongZ(gx - rw / 2 - 1.3, gz);  // west approach
+        barsAlongX(gx, gz + rw / 2 + 1.3);
+        barsAlongX(gx, gz - rw / 2 - 1.3);
+        barsAlongZ(gx + rw / 2 + 1.3, gz);
+        barsAlongZ(gx - rw / 2 - 1.3, gz);
       }
     }
+    const asphaltMesh = new Mesh(gl, asphaltGeo);
+    asphaltMesh.texture = this.tex.asphalt || null;
+    this.staticMeshes.push(asphaltMesh);
     this.staticMeshes.push(new Mesh(gl, roadGeo));
 
     // --- Raised footpath / curb pads per block (frames the roads, fills empty land) ---

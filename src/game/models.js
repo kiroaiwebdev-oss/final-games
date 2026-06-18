@@ -368,3 +368,32 @@ export function buildSpeedBreaker() {
   }
   return g;
 }
+
+
+// Gradient sky dome (drawn unlit, tinted by the current sky colour).
+export function buildSky() {
+  const g = new Geometry();
+  const top = [0.55, 0.62, 0.95];
+  const bot = [1.0, 1.0, 1.0];
+  const s = 1;
+  const bottom = [[-s, -s, -s], [s, -s, -s], [s, -s, s], [-s, -s, s]];
+  const topR = [[-s, s, -s], [s, s, -s], [s, s, s], [-s, s, s]];
+  const bi = bottom.map((p) => g.vert(p, [0, 1, 0], bot));
+  const ti = topR.map((p) => g.vert(p, [0, 1, 0], top));
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4;
+    g.face(bi[i], bi[j], ti[j]);
+    g.face(bi[i], ti[j], ti[i]);
+  }
+  g.face(ti[0], ti[1], ti[2]);
+  g.face(ti[0], ti[2], ti[3]);
+  return g;
+}
+
+// Unit quad on the ground plane with UV 0..1 (for contact shadows).
+export function buildShadowQuad() {
+  const g = new Geometry();
+  g.quad([-0.5, 0, -0.5], [0.5, 0, -0.5], [0.5, 0, 0.5], [-0.5, 0, 0.5], [0, 1, 0],
+    [1, 1, 1], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+  return g;
+}

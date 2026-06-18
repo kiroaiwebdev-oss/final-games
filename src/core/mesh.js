@@ -1,5 +1,8 @@
-// Geometry builders (flat-shaded, vertex-colored) + GPU Mesh.
+// Geometry builders (flat-shaded, vertex-colored, optional UVs) + GPU Mesh.
 import { mat4 } from "./math.js";
+
+const Z4 = [[0, 0], [0, 0], [0, 0], [0, 0]];
+const Z3 = [[0, 0], [0, 0], [0, 0]];
 
 // A CPU-side geometry we can build, transform and merge before upload.
 export class Geometry {
@@ -7,31 +10,48 @@ export class Geometry {
     this.positions = [];
     this.normals = [];
     this.colors = [];
+    this.uvs = [];
     this.indices = [];
   }
 
-  // Add a single quad (4 verts CCW) with one flat normal & color.
-  quad(a, b, c, d, normal, color) {
+  // Add a single quad (4 verts CCW). `uvs` optional [[u,v]x4].
+  quad(a, b, c, d, normal, color, uvs = Z4) {
     const base = this.positions.length / 3;
-    for (const v of [a, b, c, d]) {
+    const verts = [a, b, c, d];
+    for (let i = 0; i < 4; i++) {
+      const v = verts[i];
       this.positions.push(v[0], v[1], v[2]);
       this.normals.push(normal[0], normal[1], normal[2]);
       this.colors.push(color[0], color[1], color[2]);
+      this.uvs.push(uvs[i][0], uvs[i][1]);
     }
     this.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
     return this;
   }
 
-  tri(a, b, c, normal, color) {
+  tri(a, b, c, normal, color, uvs = Z3) {
     const base = this.positions.length / 3;
-    for (const v of [a, b, c]) {
+    const verts = [a, b, c];
+    for (let i = 0; i < 3; i++) {
+      const v = verts[i];
       this.positions.push(v[0], v[1], v[2]);
       this.normals.push(normal[0], normal[1], normal[2]);
       this.colors.push(color[0], color[1], color[2]);
+      this.uvs.push(uvs[i][0], uvs[i][1]);
     }
     this.indices.push(base, base + 1, base + 2);
     return this;
   }
+
+  // Push a vertex directly with explicit per-vertex color/uv (for gradients).
+  vert(p, normal, color, uv = [0, 0]) {
+    this.positions.push(p[0], p[1], p[2]);
+    this.normals.push(normal[0], normal[1], normal[2]);
+    this.colors.push(color[0], color[1], color[2]);
+    this.uvs.push(uv[0], uv[1]);
+    return this.positions.length / 3 - 1;
+  }
+  face(i0, i1, i2) { this.indices.push(i0, i1, i2); return this; }
 
   // Merge another geometry, optionally transformed by a mat4.
   merge(geo, transform) {
@@ -57,6 +77,10 @@ export class Geometry {
       }
     }
     this.colors.push(...geo.colors);
+    // uvs (fill zeros if the source lacked them)
+    const vcount = geo.positions.length / 3;
+    if (geo.uvs && geo.uvs.length === vcount * 2) this.uvs.push(...geo.uvs);
+    else for (let i = 0; i < vcount; i++) this.uvs.push(0, 0);
     for (const idx of geo.indices) this.indices.push(idx + base);
     return this;
   }
@@ -69,17 +93,11 @@ export function box(w, h, d, color, off = [0, 0, 0]) {
   const x = w / 2, y = h / 2, z = d / 2;
   const [ox, oy, oz] = off;
   const p = (a, b, c) => [a + ox, b + oy, c + oz];
-  // top
   g.quad(p(-x, y, z), p(x, y, z), p(x, y, -z), p(-x, y, -z), [0, 1, 0], color);
-  // bottom
   g.quad(p(-x, -y, -z), p(x, -y, -z), p(x, -y, z), p(-x, -y, z), [0, -1, 0], color);
-  // front (+z)
   g.quad(p(-x, -y, z), p(x, -y, z), p(x, y, z), p(-x, y, z), [0, 0, 1], color);
-  // back (-z)
   g.quad(p(x, -y, -z), p(-x, -y, -z), p(-x, y, -z), p(x, y, -z), [0, 0, -1], color);
-  // right (+x)
   g.quad(p(x, -y, z), p(x, -y, -z), p(x, y, -z), p(x, y, z), [1, 0, 0], color);
-  // left (-x)
   g.quad(p(-x, -y, -z), p(-x, -y, z), p(-x, y, z), p(-x, y, -z), [-1, 0, 0], color);
   return g;
 }
@@ -96,44 +114,55 @@ export function cylinder(radius, height, segments, color, topColor) {
     const c1 = Math.cos(a1), s1 = Math.sin(a1);
     const x0 = c0 * radius, z0 = s0 * radius;
     const x1 = c1 * radius, z1 = s1 * radius;
-    // side
     const n = [(c0 + c1) / 2, 0, (s0 + s1) / 2];
     g.quad([x0, -y, z0], [x1, -y, z1], [x1, y, z1], [x0, y, z0], n, color);
-    // top + bottom caps
     g.tri([0, y, 0], [x0, y, z0], [x1, y, z1], [0, 1, 0], tc);
     g.tri([0, -y, 0], [x1, -y, z1], [x0, -y, z0], [0, -1, 0], tc);
   }
   return g;
 }
 
-// Wheel: cylinder whose axle runs along X (so it rolls forward, spinning about X).
+// Wheel: cylinder whose axle runs along X (rolls forward, spins about X).
 export function wheel(radius, width, segments, color, hubColor) {
   const g = cylinder(radius, width, segments, color, hubColor);
-  // rotate from Y-axis to X-axis
-  const rot = mat4.rotationZ(Math.PI / 2);
   const out = new Geometry();
-  out.merge(g, rot);
+  out.merge(g, mat4.rotationZ(Math.PI / 2));
   return out;
 }
 
-// Flat ground plane subdivided so fog/lighting reads nicely.
+// Flat ground plane (single color, no UV).
 export function plane(size, color, divisions = 1) {
   const g = new Geometry();
   const step = size / divisions;
   const half = size / 2;
   for (let i = 0; i < divisions; i++) {
     for (let j = 0; j < divisions; j++) {
-      const x0 = -half + i * step;
-      const z0 = -half + j * step;
-      const x1 = x0 + step;
-      const z1 = z0 + step;
+      const x0 = -half + i * step, z0 = -half + j * step;
+      const x1 = x0 + step, z1 = z0 + step;
       g.quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0], color);
     }
   }
   return g;
 }
 
-// Pyramid/cone-ish for tree tops and roofs (n-sided).
+// Textured tiled ground plane: UV repeats every `tile` world units.
+export function planeTiled(size, color, divisions, tile) {
+  const g = new Geometry();
+  const step = size / divisions;
+  const half = size / 2;
+  const uv = (x, z) => [x / tile, z / tile];
+  for (let i = 0; i < divisions; i++) {
+    for (let j = 0; j < divisions; j++) {
+      const x0 = -half + i * step, z0 = -half + j * step;
+      const x1 = x0 + step, z1 = z0 + step;
+      g.quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], [0, 1, 0], color,
+        [uv(x0, z0), uv(x1, z0), uv(x1, z1), uv(x0, z1)]);
+    }
+  }
+  return g;
+}
+
+// Pyramid/cone for tree tops and roofs.
 export function cone(radius, height, segments, color) {
   const g = new Geometry();
   for (let i = 0; i < segments; i++) {
@@ -149,31 +178,35 @@ export function cone(radius, height, segments, color) {
 }
 
 // ---------- GPU mesh ----------
-
+// Interleaved: pos3, normal3, color3, uv2  => 11 floats / vertex.
 export class Mesh {
   constructor(gl, geometry) {
     this.count = geometry.indices.length;
+    this.texture = null;
     const n = geometry.positions.length / 3;
-    const inter = new Float32Array(n * 9);
+    const hasUV = geometry.uvs && geometry.uvs.length === n * 2;
+    const inter = new Float32Array(n * 11);
     for (let i = 0; i < n; i++) {
-      inter[i * 9 + 0] = geometry.positions[i * 3 + 0];
-      inter[i * 9 + 1] = geometry.positions[i * 3 + 1];
-      inter[i * 9 + 2] = geometry.positions[i * 3 + 2];
-      inter[i * 9 + 3] = geometry.normals[i * 3 + 0];
-      inter[i * 9 + 4] = geometry.normals[i * 3 + 1];
-      inter[i * 9 + 5] = geometry.normals[i * 3 + 2];
-      inter[i * 9 + 6] = geometry.colors[i * 3 + 0];
-      inter[i * 9 + 7] = geometry.colors[i * 3 + 1];
-      inter[i * 9 + 8] = geometry.colors[i * 3 + 2];
+      const o = i * 11;
+      inter[o + 0] = geometry.positions[i * 3 + 0];
+      inter[o + 1] = geometry.positions[i * 3 + 1];
+      inter[o + 2] = geometry.positions[i * 3 + 2];
+      inter[o + 3] = geometry.normals[i * 3 + 0];
+      inter[o + 4] = geometry.normals[i * 3 + 1];
+      inter[o + 5] = geometry.normals[i * 3 + 2];
+      inter[o + 6] = geometry.colors[i * 3 + 0];
+      inter[o + 7] = geometry.colors[i * 3 + 1];
+      inter[o + 8] = geometry.colors[i * 3 + 2];
+      inter[o + 9] = hasUV ? geometry.uvs[i * 2 + 0] : 0;
+      inter[o + 10] = hasUV ? geometry.uvs[i * 2 + 1] : 0;
     }
     this.vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bufferData(gl.ARRAY_BUFFER, inter, gl.STATIC_DRAW);
-
     this.ibo = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geometry.indices), gl.STATIC_DRAW);
-    this.stride = 9 * 4;
+    this.stride = 11 * 4;
   }
 
   bind(gl, attr) {
@@ -184,6 +217,10 @@ export class Mesh {
     gl.vertexAttribPointer(attr.normal, 3, gl.FLOAT, false, this.stride, 12);
     gl.enableVertexAttribArray(attr.color);
     gl.vertexAttribPointer(attr.color, 3, gl.FLOAT, false, this.stride, 24);
+    if (attr.uv >= 0) {
+      gl.enableVertexAttribArray(attr.uv);
+      gl.vertexAttribPointer(attr.uv, 2, gl.FLOAT, false, this.stride, 36);
+    }
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
   }
 }

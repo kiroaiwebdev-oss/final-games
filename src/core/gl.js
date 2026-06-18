@@ -1,10 +1,11 @@
-// Raw WebGL renderer: flat-ish lit, vertex-colored, fogged. No dependencies.
+// WebGL renderer: textured Blinn-Phong + rim light + fog, sky/unlit support.
 import { mat4 } from "./math.js";
 
 const VERT = `
 attribute vec3 aPos;
 attribute vec3 aNormal;
 attribute vec3 aColor;
+attribute vec2 aUV;
 
 uniform mat4 uProjection;
 uniform mat4 uView;
@@ -13,6 +14,8 @@ uniform mat3 uNormalMatrix;
 
 varying vec3 vNormal;
 varying vec3 vColor;
+varying vec2 vUV;
+varying vec3 vWorldPos;
 varying float vFogDepth;
 
 void main() {
@@ -21,6 +24,8 @@ void main() {
   gl_Position = uProjection * viewPos;
   vNormal = normalize(uNormalMatrix * aNormal);
   vColor = aColor;
+  vUV = aUV;
+  vWorldPos = world.xyz;
   vFogDepth = -viewPos.z;
 }
 `;
@@ -30,28 +35,53 @@ precision mediump float;
 
 varying vec3 vNormal;
 varying vec3 vColor;
+varying vec2 vUV;
+varying vec3 vWorldPos;
 varying float vFogDepth;
 
+uniform sampler2D uTex;
+uniform vec3 uCamPos;
 uniform vec3 uLightDir;     // direction TO the light (normalized)
 uniform vec3 uLightColor;
 uniform vec3 uAmbient;
 uniform vec3 uFogColor;
 uniform float uFogNear;
 uniform float uFogFar;
-uniform vec3 uTint;         // multiply tint (for flashing/selection)
+uniform float uFogScale;
+uniform vec3 uTint;
 uniform float uAlpha;
+uniform float uUnlit;
+uniform float uShininess;
+uniform float uSpec;
+uniform float uRim;
 
 void main() {
-  vec3 n = normalize(vNormal);
-  float diff = max(dot(n, uLightDir), 0.0);
-  // subtle wrap lighting so backsides aren't pure black
-  float wrap = max(dot(n, uLightDir) * 0.5 + 0.5, 0.0) * 0.35;
-  vec3 lit = vColor * (uAmbient + uLightColor * (diff + wrap));
-  lit *= uTint;
+  vec4 tex = texture2D(uTex, vUV);
+  vec3 base = tex.rgb * vColor * uTint;
 
-  float fog = clamp((vFogDepth - uFogNear) / (uFogFar - uFogNear), 0.0, 1.0);
+  if (uUnlit > 0.5) {
+    float fogU = clamp((vFogDepth - uFogNear) / (uFogFar - uFogNear), 0.0, 1.0) * uFogScale;
+    gl_FragColor = vec4(mix(base, uFogColor, fogU * 0.0), uAlpha * tex.a);
+    return;
+  }
+
+  vec3 N = normalize(vNormal);
+  vec3 L = normalize(uLightDir);
+  vec3 V = normalize(uCamPos - vWorldPos);
+  vec3 H = normalize(L + V);
+
+  float diff = max(dot(N, L), 0.0);
+  float wrap = max(dot(N, L) * 0.5 + 0.5, 0.0) * 0.32;       // soft fill
+  float spec = (diff > 0.0) ? pow(max(dot(N, H), 0.0), uShininess) * uSpec : 0.0;
+  float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0) * uRim;
+
+  vec3 lit = base * (uAmbient + uLightColor * (diff + wrap));
+  lit += uLightColor * spec;                                  // highlight
+  lit += uFogColor * rim;                                     // atmospheric edge
+
+  float fog = clamp((vFogDepth - uFogNear) / (uFogFar - uFogNear), 0.0, 1.0) * uFogScale;
   vec3 color = mix(lit, uFogColor, fog);
-  gl_FragColor = vec4(color, uAlpha);
+  gl_FragColor = vec4(color, uAlpha * tex.a);
 }
 `;
 
@@ -87,36 +117,56 @@ export class Renderer {
       pos: gl.getAttribLocation(prog, "aPos"),
       normal: gl.getAttribLocation(prog, "aNormal"),
       color: gl.getAttribLocation(prog, "aColor"),
+      uv: gl.getAttribLocation(prog, "aUV"),
     };
+    const U = (n) => gl.getUniformLocation(prog, n);
     this.uni = {
-      projection: gl.getUniformLocation(prog, "uProjection"),
-      view: gl.getUniformLocation(prog, "uView"),
-      model: gl.getUniformLocation(prog, "uModel"),
-      normalMatrix: gl.getUniformLocation(prog, "uNormalMatrix"),
-      lightDir: gl.getUniformLocation(prog, "uLightDir"),
-      lightColor: gl.getUniformLocation(prog, "uLightColor"),
-      ambient: gl.getUniformLocation(prog, "uAmbient"),
-      fogColor: gl.getUniformLocation(prog, "uFogColor"),
-      fogNear: gl.getUniformLocation(prog, "uFogNear"),
-      fogFar: gl.getUniformLocation(prog, "uFogFar"),
-      tint: gl.getUniformLocation(prog, "uTint"),
-      alpha: gl.getUniformLocation(prog, "uAlpha"),
+      projection: U("uProjection"), view: U("uView"), model: U("uModel"),
+      normalMatrix: U("uNormalMatrix"), camPos: U("uCamPos"),
+      lightDir: U("uLightDir"), lightColor: U("uLightColor"), ambient: U("uAmbient"),
+      fogColor: U("uFogColor"), fogNear: U("uFogNear"), fogFar: U("uFogFar"), fogScale: U("uFogScale"),
+      tint: U("uTint"), alpha: U("uAlpha"), unlit: U("uUnlit"), tex: U("uTex"),
+      shininess: U("uShininess"), spec: U("uSpec"), rim: U("uRim"),
     };
 
     gl.enable(gl.DEPTH_TEST);
-    // Back-face culling left OFF so any face-winding inconsistency can never
-    // make low-poly parts disappear. Cheap for this scene.
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+    // 1x1 white default texture
+    this.whiteTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
+    gl.uniform1i(this.uni.tex, 0);
+
     // defaults
     this.sky = [0.62, 0.78, 0.95];
-    this.fogNear = 60;
-    this.fogFar = 320;
+    this.fogNear = 80; this.fogFar = 360;
     this.lightDir = [0.5, 0.85, 0.35];
     this.lightColor = [1.0, 0.97, 0.88];
     this.ambient = [0.45, 0.5, 0.6];
+    this.camPos = [0, 10, 0];
+  }
+
+  createTexture(source) {
+    const gl = this.gl;
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    try {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    } catch (e) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([200, 200, 200, 255]));
+    }
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    try { gl.generateMipmap(gl.TEXTURE_2D); } catch (e) {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    }
+    return t;
   }
 
   resize() {
@@ -124,8 +174,7 @@ export class Renderer {
     const w = Math.floor(this.canvas.clientWidth * dpr);
     const h = Math.floor(this.canvas.clientHeight * dpr);
     if (this.canvas.width !== w || this.canvas.height !== h) {
-      this.canvas.width = w;
-      this.canvas.height = h;
+      this.canvas.width = w; this.canvas.height = h;
     }
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.aspect = w / h || 1;
@@ -140,17 +189,19 @@ export class Renderer {
     if (ambient) this.ambient = ambient;
   }
 
-  beginFrame(viewMatrix, fov = 60) {
+  beginFrame(viewMatrix, fov = 60, camPos) {
     const gl = this.gl;
     gl.clearColor(this.sky[0], this.sky[1], this.sky[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    if (camPos) this.camPos = camPos;
 
-    this.projection = mat4.perspective(fov, this.aspect, 0.5, 1200);
+    this.projection = mat4.perspective(fov, this.aspect, 0.5, 2000);
     this.view = viewMatrix;
 
     gl.useProgram(this.prog);
     gl.uniformMatrix4fv(this.uni.projection, false, this.projection);
     gl.uniformMatrix4fv(this.uni.view, false, this.view);
+    gl.uniform3fv(this.uni.camPos, this.camPos);
     const ld = this.lightDir;
     const len = Math.hypot(ld[0], ld[1], ld[2]) || 1;
     gl.uniform3f(this.uni.lightDir, ld[0] / len, ld[1] / len, ld[2] / len);
@@ -159,16 +210,27 @@ export class Renderer {
     gl.uniform3fv(this.uni.fogColor, this.sky);
     gl.uniform1f(this.uni.fogNear, this.fogNear);
     gl.uniform1f(this.uni.fogFar, this.fogFar);
+    gl.uniform1i(this.uni.tex, 0);
   }
 
-  draw(mesh, modelMatrix, { tint = [1, 1, 1], alpha = 1 } = {}) {
+  draw(mesh, modelMatrix, opts = {}) {
     const gl = this.gl;
     gl.uniformMatrix4fv(this.uni.model, false, modelMatrix);
     gl.uniformMatrix3fv(this.uni.normalMatrix, false, mat4.normalFromMat4(modelMatrix));
-    gl.uniform3fv(this.uni.tint, tint);
-    gl.uniform1f(this.uni.alpha, alpha);
+    gl.uniform3fv(this.uni.tint, opts.tint || [1, 1, 1]);
+    gl.uniform1f(this.uni.alpha, opts.alpha == null ? 1 : opts.alpha);
+    gl.uniform1f(this.uni.unlit, opts.unlit ? 1 : 0);
+    gl.uniform1f(this.uni.fogScale, opts.fog == null ? 1 : opts.fog);
+    gl.uniform1f(this.uni.shininess, opts.shininess || 24);
+    gl.uniform1f(this.uni.spec, opts.spec == null ? 0.12 : opts.spec);
+    gl.uniform1f(this.uni.rim, opts.rim == null ? 0.10 : opts.rim);
 
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, mesh.texture || this.whiteTex);
+
+    if (opts.writeDepth === false) gl.depthMask(false);
     mesh.bind(gl, this.attr);
     gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+    if (opts.writeDepth === false) gl.depthMask(true);
   }
 }
