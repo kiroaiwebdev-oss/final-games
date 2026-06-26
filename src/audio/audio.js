@@ -21,6 +21,17 @@ export class Sfx {
 
   setMuted(m) { this.muted = m; }
 
+  // Temporarily silence audio for the duration of an ad WITHOUT changing the
+  // player's own mute preference. Suspends/resumes the AudioContext.
+  adMute(on) {
+    this._ensure();
+    if (!this.ctx) return;
+    try {
+      if (on) { this.ctx.suspend(); }
+      else if (!this.muted) { this.ctx.resume(); }
+    } catch (e) { /* best-effort */ }
+  }
+
   _tone(freq, start, dur, type = "sawtooth", gain = 0.18) {
     if (!this.ctx || this.muted) return;
     const t0 = this.ctx.currentTime + start;

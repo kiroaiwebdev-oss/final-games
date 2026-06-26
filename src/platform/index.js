@@ -1,21 +1,27 @@
-// Platform selection. Today only "standalone" exists.
+// Platform selection.
 //
-// When the user asks to add a platform, we:
-//   1) add its <script> SDK loader to index.html (or load it here),
-//   2) create a new adapter subclass (e.g. CrazyGamesAdapter),
-//   3) register it in ADAPTERS below,
-//   4) select it via ?platform=crazygames or a build-time PLATFORM constant.
+// Each platform has a thin adapter that wraps its SDK. The build (tools/build.mjs)
+// sets window.__PLATFORM__ and injects the matching SDK <script> into a
+// per-platform index.html. The game code never changes — it only talks to the
+// PlatformAdapter interface.
 //
-// The game code never changes.
+//   standalone        -> itch.io / direct hosting / local dev (no SDK)
+//   crazygames        -> CrazyGames HTML5 SDK v3
+//   gamedistribution  -> GameDistribution HTML5 SDK
+//   y8                -> Y8 (idnet, optional)
+//   playhop           -> PlayHop via Playgama Bridge
 import { StandaloneAdapter } from "./standalone.js";
+import { CrazyGamesAdapter } from "./crazygames.js";
+import { GameDistributionAdapter } from "./gamedistribution.js";
+import { Y8Adapter } from "./y8.js";
+import { PlayHopAdapter } from "./playhop.js";
 
 const ADAPTERS = {
   standalone: StandaloneAdapter,
-  // crazygames: CrazyGamesAdapter,   <-- added later on request
-  // poki: PokiAdapter,
-  // gamedistribution: GDAdapter,
-  // y8: Y8Adapter,
-  // facebook: FBInstantAdapter,
+  crazygames: CrazyGamesAdapter,
+  gamedistribution: GameDistributionAdapter,
+  y8: Y8Adapter,
+  playhop: PlayHopAdapter,
 };
 
 // Build-time override (a per-platform build can set window.__PLATFORM__).

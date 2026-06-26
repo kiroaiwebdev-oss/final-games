@@ -99,6 +99,7 @@ export class Game {
     window.addEventListener("pointerdown", resume, { once: true });
     window.addEventListener("resize", () => this.renderer.resize());
     this.renderer.resize();
+    this._bindVisibility();
 
     this.loop = new Loop((dt) => this.update(dt));
     this.loop.start();
@@ -111,6 +112,41 @@ export class Game {
   applySkin() {
     const cab = getSkin(this.profile.selectedSkin).cab;
     this.truck.setTruck(this.renderer.gl, this.profile.selectedTruckDef, cab);
+  }
+
+  // Pause + signal gameplayStop when the tab/window loses focus, and resume
+  // cleanly on return. Portals (CrazyGames etc.) require games to pause and
+  // mute when not visible; this also saves battery/CPU in the background.
+  _bindVisibility() {
+    const onHidden = () => {
+      if (this.state === STATE.DRIVING && !this._autoPaused) {
+        this._autoPaused = true;
+        this.loop.setPaused(true);
+        this.platform.gameplayStop();
+        this.sfx.adMute(true);
+        this.sfx.setEngine(0, 0);
+      }
+    };
+    const onVisible = () => {
+      if (this._autoPaused) {
+        this._autoPaused = false;
+        this.sfx.adMute(false);
+        if (this.state === STATE.DRIVING) {
+          this.loop.setPaused(false);
+          this.loop.last = performance.now();
+          this.platform.gameplayStart();
+        }
+      }
+    };
+    if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) onHidden(); else onVisible();
+      });
+    }
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("blur", onHidden);
+      window.addEventListener("focus", onVisible);
+    }
   }
 
   _initVehicleState() {

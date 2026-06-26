@@ -1,0 +1,2 @@
+# Build output: keep the ready-to-upload zips, ignore the expanded folders.
+dist/*/
