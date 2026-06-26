@@ -29,6 +29,14 @@ export class HUD {
   }
   hide() { this.el.hud.classList.add("hidden"); document.body.classList.remove("touch-mode"); }
 
+  // Re-apply touch-control layout on resize/rotation WITHOUT revealing the HUD
+  // when it's hidden (menu/loading). Keeps the UI responsive to live changes.
+  applyTouch(showTouch) {
+    if (!this.el.hud || this.el.hud.classList.contains("hidden")) return;
+    this.el.touch.classList.toggle("hidden", !showTouch);
+    document.body.classList.toggle("touch-mode", !!showTouch);
+  }
+
   setProfile(profile) {
     this.el.money.textContent = profile.money.toLocaleString();
     this.el.level.textContent = profile.level;

@@ -177,7 +177,21 @@ export class Renderer {
       this.canvas.width = w; this.canvas.height = h;
     }
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    this.aspect = w / h || 1;
+    this.aspect = (w > 0 && h > 0) ? w / h : 1;
+  }
+
+  // Adaptive ("Hor+") vertical FOV so the scene looks right on ANY screen.
+  // `fovDeg` is tuned for landscape; on narrower/portrait screens we widen the
+  // vertical FOV to keep a usable horizontal field of view (clamped so portrait
+  // never turns into a fisheye), and ultrawide keeps the wide view naturally.
+  _adaptiveFov(fovDeg) {
+    const aspect = this.aspect || 1;
+    const REF = 16 / 9;                 // landscape reference aspect
+    if (aspect >= REF) return fovDeg;   // landscape: use as-is
+    const TO_RAD = Math.PI / 180;
+    const hRef = 2 * Math.atan(Math.tan((fovDeg * TO_RAD) / 2) * REF); // horiz FOV at ref
+    const vAdapted = 2 * Math.atan(Math.tan(hRef / 2) / aspect) / TO_RAD;
+    return Math.min(vAdapted, 84);      // clamp to avoid extreme distortion
   }
 
   setEnvironment({ sky, fogNear, fogFar, lightDir, lightColor, ambient }) {
@@ -195,7 +209,7 @@ export class Renderer {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     if (camPos) this.camPos = camPos;
 
-    this.projection = mat4.perspective(fov, this.aspect, 0.5, 2000);
+    this.projection = mat4.perspective(this._adaptiveFov(fov), this.aspect, 0.5, 2000);
     this.view = viewMatrix;
 
     gl.useProgram(this.prog);

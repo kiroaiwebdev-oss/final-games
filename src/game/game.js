@@ -97,7 +97,7 @@ export class Game {
     const resume = () => this.sfx.resume();
     window.addEventListener("keydown", resume, { once: true });
     window.addEventListener("pointerdown", resume, { once: true });
-    window.addEventListener("resize", () => this.renderer.resize());
+    this._bindResize();
     this.renderer.resize();
     this._bindVisibility();
 
@@ -112,6 +112,32 @@ export class Game {
   applySkin() {
     const cab = getSkin(this.profile.selectedSkin).cab;
     this.truck.setTruck(this.renderer.gl, this.profile.selectedTruckDef, cab);
+  }
+
+  // Keep the canvas + HUD correct on every viewport change: window resize,
+  // device rotation, mobile browser chrome show/hide (visualViewport), and DPR
+  // changes. Re-applies the touch-control layout so it adapts live.
+  _bindResize() {
+    const apply = () => {
+      this.renderer.resize();
+      // Re-evaluate touch layout while in-game so rotation/resize adapts it.
+      if (this.hud && typeof this.hud.applyTouch === "function") {
+        this.hud.applyTouch(this.platform.isMobile());
+      }
+    };
+    let raf = 0;
+    const onChange = () => {
+      if (typeof requestAnimationFrame !== "function") return apply();
+      if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(apply);
+    };
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("resize", onChange);
+      window.addEventListener("orientationchange", onChange);
+      if (window.visualViewport && window.visualViewport.addEventListener) {
+        window.visualViewport.addEventListener("resize", onChange);
+      }
+    }
   }
 
   // Pause + signal gameplayStop when the tab/window loses focus, and resume
