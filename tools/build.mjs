@@ -79,9 +79,17 @@ cloud save you should bundle the official bridge.js.`,
 
 function rmrf(p) { fs.rmSync(p, { recursive: true, force: true }); }
 
+// Unique per-build cache-busting token so hosted/preview reloads always fetch
+// the latest assets instead of a stale cached copy.
+const BUILD_VER = "b" + Date.now().toString(36);
+
 function buildIndexHtml(headInjection) {
-  const src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  let src = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   if (!src.includes("</head>")) throw new Error("index.html has no </head>");
+  // Stamp a fresh cache-busting version on the CSS + entry script.
+  src = src
+    .replace(/styles\.css(\?v=[^"']*)?/g, `styles.css?v=${BUILD_VER}`)
+    .replace(/src\/main\.js(\?v=[^"']*)?/g, `src/main.js?v=${BUILD_VER}`);
   return src.replace("</head>", headInjection + "\n</head>");
 }
 
