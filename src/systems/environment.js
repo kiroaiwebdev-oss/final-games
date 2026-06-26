@@ -1,5 +1,6 @@
-// Dynamic time-of-day + weather. Drives renderer lighting/fog/sky, exposes
-// isNight()/isRaining()/grip, and renders a 2D rain overlay.
+// Dynamic time-of-day. Weather is locked to "clear" for the cleanest, most
+// attractive look (no random rain/fog/cloudy). Weather methods are kept so the
+// renderer/tests can still drive an explicit weather if ever needed.
 import { clamp, lerp } from "../core/math.js";
 
 const STOPS = [
@@ -12,8 +13,6 @@ const STOPS = [
   { t: 0.86, sky: [0.10, 0.10, 0.20], amb: [0.20, 0.22, 0.30], lc: [0.35, 0.40, 0.55] },
   { t: 1.00, sky: [0.04, 0.05, 0.10], amb: [0.16, 0.18, 0.26], lc: [0.25, 0.30, 0.45] },
 ];
-
-const WEATHERS = ["clear", "clear", "cloudy", "fog", "rain"];
 
 function sampleStops(t) {
   for (let i = 0; i < STOPS.length - 1; i++) {
@@ -34,8 +33,7 @@ export class Environment {
   constructor({ dayLength = 200, startTime = 0.34 } = {}) {
     this.dayLength = dayLength;
     this.time = startTime;            // 0..1 fraction of day
-    this.weather = "clear";
-    this.weatherTimer = 25 + Math.random() * 30;
+    this.weather = "clear";           // fixed — never changes during play
     this.grip = 1;
 
     // rain overlay canvas
@@ -56,7 +54,7 @@ export class Environment {
     } catch (e) { /* harness / no DOM */ }
   }
 
-  setWeather(w) { this.weather = w; this.weatherTimer = 30; }
+  setWeather(w) { this.weather = w; }
 
   isNight() {
     const sun = Math.sin((this.time - 0.25) * Math.PI * 2);
@@ -79,11 +77,7 @@ export class Environment {
 
   update(dt) {
     this.time = (this.time + dt / this.dayLength) % 1;
-    this.weatherTimer -= dt;
-    if (this.weatherTimer <= 0) {
-      this.weather = WEATHERS[Math.floor(Math.random() * WEATHERS.length)];
-      this.weatherTimer = 30 + Math.random() * 40;
-    }
+    // Weather stays fixed ("clear"); no random changes during play.
     this.grip = this.isRaining() ? 0.72 : 1;
   }
 
