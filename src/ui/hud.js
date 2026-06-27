@@ -49,7 +49,7 @@ export class HUD {
   // Objective line + countdown timer (lives in the nav card).
   setMission(mission) {
     if (!mission || !mission.active) {
-      this.el.navObjective.textContent = "Return to Central Depot for a job";
+      this.el.navObjective.innerHTML = `<span class="nav-obj-text">Return to Central Depot for a job</span>`;
       this.el.navTimer.textContent = "";
       this.el.navTimer.classList.remove("low");
       return;
@@ -58,8 +58,8 @@ export class HUD {
     const verb = job.phase === "pickup" ? "Pick up" : "Deliver";
     const tag = job.type && job.type.tag ? ` ${job.type.tag}` : "";
     this.el.navObjective.innerHTML =
-      `${verb} ${job.cargo} → <b>${mission.targetName}</b>` +
-      `<span class="nav-pay">$${job.reward}</span>${tag}`;
+      `<span class="nav-obj-text">${verb} ${job.cargo} → <b>${mission.targetName}</b>${tag}</span>` +
+      `<span class="nav-pay">$${job.reward}</span>`;
     const t = Math.max(0, Math.ceil(job.timeLeft));
     const mm = Math.floor(t / 60), ss = t % 60;
     this.el.navTimer.textContent = mm > 0 ? `${mm}:${String(ss).padStart(2, "0")}` : `${ss}s`;

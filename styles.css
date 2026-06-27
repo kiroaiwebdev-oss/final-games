@@ -64,7 +64,7 @@ button { font-family: inherit; cursor: pointer; }
   -webkit-backdrop-filter: blur(10px);
 }
 
-.hud-top-left { position: absolute; top: 14px; left: 14px; display: flex; gap: 10px; align-items: flex-start; }
+.hud-top-left { position: absolute; top: 14px; left: 14px; display: flex; gap: 10px; align-items: stretch; }
 .stat {
   padding: 8px 14px; border-radius: 14px; font-weight: 800; font-size: clamp(15px, 4vw, 18px);
   display: flex; align-items: center; gap: 6px; box-shadow: var(--shadow);
@@ -99,11 +99,12 @@ button { font-family: inherit; cursor: pointer; }
 .nav-mid { flex: 1 1 auto; min-width: 0; text-align: left; }
 .nav-instruction { font-weight: 800; font-size: clamp(14px, 3.6vw, 16px); line-height: 1.12; }
 .nav-objective {
+  display: flex; align-items: center; gap: 6px;
   font-size: 12px; color: var(--muted); margin-top: 2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.nav-obj-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-objective b { color: var(--text); font-weight: 700; }
-.nav-pay { color: var(--accent); font-weight: 800; margin-left: 6px; }
+.nav-pay { flex: 0 0 auto; color: var(--accent); font-weight: 800; }
 .nav-side { flex: 0 0 auto; text-align: right; min-width: 50px; }
 .nav-dist { font-weight: 900; font-size: clamp(15px, 4vw, 18px); color: var(--text); line-height: 1; }
 .nav-timer { font-size: 12px; color: var(--muted); font-weight: 800; margin-top: 3px; }
