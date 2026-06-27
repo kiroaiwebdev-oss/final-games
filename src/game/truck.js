@@ -98,9 +98,26 @@ export class Truck {
     let nx = this.pos[0] + fwd[0] * this.speed * dt;
     let nz = this.pos[2] + fwd[1] * this.speed * dt;
 
-    // ---- Collisions with world obstacles (AABB vs circle) ----
+    // ---- Collisions (circle vs AABB) with a realistic velocity response ----
+    // We push the truck out of the obstacle, then kill only the velocity that
+    // points INTO the surface (so head-on hits stop/recoil while glancing hits
+    // slide along the wall) — instead of always dumping 70% of the speed.
     const r = this.dims.halfWidth + 0.6;
     let hitImpulse = 0;
+    let hitN = null;       // normal of the strongest contact (points away from wall)
+    let hitHeadOn = 0;     // 0 = glancing, 1 = dead head-on
+    const velSign = this.speed >= 0 ? 1 : (this.speed < 0 ? -1 : 0);
+
+    const considerHit = (Nx, Nz, push) => {
+      nx += Nx * push;
+      nz += Nz * push;
+      // how directly the truck is driving into this surface (0..1)
+      const into = clamp(-(fwd[0] * Nx + fwd[1] * Nz) * velSign, 0, 1);
+      const imp = Math.abs(this.speed) * (0.35 + 0.65 * into);
+      if (imp > hitImpulse) hitImpulse = imp;
+      if (into >= hitHeadOn) { hitHeadOn = into; hitN = [Nx, Nz]; }
+    };
+
     if (world) {
       for (const o of world.obstacles) {
         const cx = clamp(nx, o.x - o.hw, o.x + o.hw);
@@ -108,20 +125,36 @@ export class Truck {
         const dx = nx - cx, dz = nz - cz;
         const d2 = dx * dx + dz * dz;
         if (d2 < r * r) {
-          const d = Math.sqrt(d2) || 0.0001;
-          const push = (r - d) / d;
-          nx += dx * push;
-          nz += dz * push;
-          hitImpulse = Math.max(hitImpulse, Math.abs(this.speed));
-          this.speed *= 0.3; // crash slows you hard
+          const d = Math.sqrt(d2);
+          if (d > 1e-3) {
+            considerHit(dx / d, dz / d, r - d);
+          } else {
+            // center buried inside the box: eject along the shallowest axis
+            const penX = (o.hw + r) - Math.abs(nx - o.x);
+            const penZ = (o.hd + r) - Math.abs(nz - o.z);
+            if (penX < penZ) considerHit(nx - o.x >= 0 ? 1 : -1, 0, penX);
+            else considerHit(0, nz - o.z >= 0 ? 1 : -1, penZ);
+          }
         }
       }
-      // border
+      // perimeter walls
       const lim = world.borderLimit || 9999;
-      if (nx > lim) { nx = lim; hitImpulse = Math.max(hitImpulse, Math.abs(this.speed) * 0.5); this.speed *= 0.4; }
-      if (nx < -lim) { nx = -lim; hitImpulse = Math.max(hitImpulse, Math.abs(this.speed) * 0.5); this.speed *= 0.4; }
-      if (nz > lim) { nz = lim; hitImpulse = Math.max(hitImpulse, Math.abs(this.speed) * 0.5); this.speed *= 0.4; }
-      if (nz < -lim) { nz = -lim; hitImpulse = Math.max(hitImpulse, Math.abs(this.speed) * 0.5); this.speed *= 0.4; }
+      if (nx > lim) considerHit(-1, 0, nx - lim);
+      else if (nx < -lim) considerHit(1, 0, -lim - nx);
+      if (nz > lim) considerHit(0, -1, nz - lim);
+      else if (nz < -lim) considerHit(0, 1, -lim - nz);
+    }
+
+    if (hitN) {
+      const sp = Math.abs(this.speed);
+      // bleed speed in proportion to how head-on it is (glancing => keep sliding)
+      this.speed *= (1 - 0.9 * hitHeadOn);
+      // a solid head-on impact at speed bounces the truck back off the wall
+      if (hitHeadOn > 0.55 && sp > 6) {
+        this.speed = -velSign * Math.min(sp * 0.16, 2.4);
+      }
+      // chassis jolt (nose dip) on a hard impact, decays in update()
+      if (hitHeadOn * sp > 7) this._crashJolt = Math.min(0.6, hitHeadOn * sp * 0.045);
     }
 
     this.pos[0] = nx;
@@ -135,6 +168,8 @@ export class Truck {
     this.roll = (this.roll || 0) + (targetRoll - (this.roll || 0)) * Math.min(6 * dt, 1);
     const targetPitch = clamp((throttle - brake) * -0.03 * (0.4 + speedFrac), -0.05, 0.05);
     this.pitch = (this.pitch || 0) + (targetPitch - (this.pitch || 0)) * Math.min(6 * dt, 1);
+    // crash jolt decays quickly (applied to the rendered pitch as a nose-dip)
+    this._crashJolt = (this._crashJolt || 0) * Math.max(0, 1 - 9 * dt);
 
     return { hitImpulse, speedKMH: this.speedKMH };
   }
@@ -143,7 +178,7 @@ export class Truck {
     const tint = opts.tint || [1, 1, 1];
     const model = mat4.compose(
       [this.pos[0], this.pos[1], this.pos[2]],
-      [this.pitch || 0, this.heading, this.roll || 0],
+      [(this.pitch || 0) + (this._crashJolt || 0), this.heading, this.roll || 0],
       [1, 1, 1]
     );
     this._model = model;
@@ -167,7 +202,7 @@ export class Truck {
   modelMatrix() {
     return mat4.compose(
       [this.pos[0], this.pos[1], this.pos[2]],
-      [this.pitch || 0, this.heading, this.roll || 0],
+      [(this.pitch || 0) + (this._crashJolt || 0), this.heading, this.roll || 0],
       [1, 1, 1]
     );
   }

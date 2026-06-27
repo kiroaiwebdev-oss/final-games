@@ -42,6 +42,7 @@ export class Game {
     this.cpFined = {};
     this._lastManeuver = null;
     this._maneuverCd = 0;
+    this.crashCd = 0;
   }
 
   async boot() {
@@ -521,11 +522,19 @@ export class Game {
     this.traffic.update(dt, this.truck.pos);
     const trafficImpulse = this.traffic.resolve(this.truck);
     const impulse = Math.max(res.hitImpulse, trafficImpulse);
-    if (impulse > 6) {
-      const dmg = (impulse - 6) * 0.8;
+    if (this.crashCd > 0) this.crashCd -= dt;
+    if (impulse > 5) {
+      const dmg = (impulse - 5) * 0.85;
       this.health = clamp(this.health - dmg, 0, this.maxHealth);
       this.mission.registerDamage(dmg);
-      if (dmg > 5) { this.hud.toast("Crash! Truck damaged"); this.sfx.crash(); this.shake = Math.min(0.6, dmg * 0.04); }
+      if (this.crashCd <= 0) {
+        this.sfx.crash();
+        this.shake = Math.min(0.75, 0.14 + dmg * 0.05);
+        // debris sparks burst from the front of the truck on impact
+        this.particles.sparks(this.truck.localToWorld([(Math.random() - 0.5) * 2, 1.1, 5.6]), Math.min(22, 8 + Math.round(dmg)));
+        if (dmg > 4) this.hud.toast("💥 Crash! Truck damaged");
+        this.crashCd = 0.5;
+      }
     }
 
     // potholes
