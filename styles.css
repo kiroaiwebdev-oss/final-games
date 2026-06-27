@@ -34,7 +34,7 @@ body {
 #game-root { position: fixed; inset: 0; height: 100vh; height: 100dvh; }
 #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .hidden { display: none !important; }
-button { font-family: inherit; cursor: pointer; }
+button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 
 /* ---------------- Loading ---------------- */
 .screen {
@@ -154,6 +154,7 @@ button { font-family: inherit; cursor: pointer; }
   position: absolute; top: calc(74px + env(safe-area-inset-top,0px)); left: 50%; transform: translateX(-50%);
   background: var(--glass-2); border: 1px solid var(--stroke); border-radius: 14px;
   padding: 12px 22px; font-weight: 700; z-index: 40; box-shadow: var(--shadow); max-width: 86vw; text-align: center;
+  pointer-events: none;
   animation: toastIn .28s cubic-bezier(.2,.9,.3,1.2);
 }
 @keyframes toastIn { from { transform: translateX(-50%) translateY(-8px) scale(.95); opacity: 0; } to { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; } }
