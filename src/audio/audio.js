@@ -24,8 +24,7 @@ export class Sfx {
   // Temporarily silence audio for the duration of an ad WITHOUT changing the
   // player's own mute preference. Suspends/resumes the AudioContext.
   adMute(on) {
-    this._ensure();
-    if (!this.ctx) return;
+    if (!this.ctx) return; // nothing created yet -> nothing to mute (don't create it here)
     try {
       if (on) { this.ctx.suspend(); }
       else if (!this.muted) { this.ctx.resume(); }
