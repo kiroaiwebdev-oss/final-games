@@ -61,6 +61,19 @@ export class Sfx {
     this._tone(990, 0.1, 0.16, "triangle", 0.14);
   }
 
+  // Short soft cue for an upcoming navigation maneuver.
+  blip(freq = 600) {
+    this._ensure();
+    this._tone(freq, 0, 0.09, "triangle", 0.10);
+  }
+
+  // Pleasant two-note chime when cargo is picked up.
+  pickup() {
+    this._ensure();
+    this._tone(523, 0, 0.10, "triangle", 0.12);
+    this._tone(784, 0.08, 0.14, "triangle", 0.12);
+  }
+
   crash() {
     this._ensure();
     if (!this.ctx || this.muted) return;

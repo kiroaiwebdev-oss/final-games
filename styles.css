@@ -344,3 +344,51 @@ body.touch-mode .minimap { width: 96px; height: 96px; top: calc(116px + env(safe
 
 /* Cinematic color grade on the 3D canvas (cheap, GPU-composited) */
 #gl { filter: saturate(1.15) contrast(1.07) brightness(1.02); }
+
+
+
+/* ============================================================
+   First-drive coach marks (in-context, tap to dismiss)
+   ============================================================ */
+.coach {
+  position: fixed; inset: 0; z-index: 120;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: calc(118px + env(safe-area-inset-top, 0px)) 16px calc(140px + var(--safe-b));
+  background: radial-gradient(120% 80% at 50% 50%, rgba(4, 7, 14, .12), rgba(4, 7, 14, .72));
+  animation: fadeIn .25s ease; text-align: left;
+  -webkit-backdrop-filter: blur(1.5px); backdrop-filter: blur(1.5px);
+}
+.coach-callout {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--glass-2); border: 1px solid var(--stroke-2); border-radius: 16px;
+  padding: 13px 16px; max-width: min(440px, 90vw); box-shadow: var(--shadow);
+  font-size: clamp(13px, 3.6vw, 15px); line-height: 1.35;
+  animation: panelIn .3s cubic-bezier(.2, .9, .3, 1.15);
+}
+.coach-callout b { color: var(--accent); }
+.coach-emoji { font-size: 30px; flex: 0 0 auto; }
+.coach-start {
+  font-weight: 800; letter-spacing: .3px; color: #20160a;
+  font-size: clamp(14px, 4vw, 16px);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  padding: 10px 22px; border-radius: 99px; box-shadow: var(--shadow);
+  animation: coachpulse 1.2s ease-in-out infinite;
+}
+@keyframes coachpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+
+
+/* ============================================================
+   Result screen flourish
+   ============================================================ */
+.result-win { color: var(--good); animation: winpop .5s cubic-bezier(.2, .9, .3, 1.4); }
+.result-lose { color: var(--bad); }
+@keyframes winpop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+.perfect-badge {
+  display: inline-block; margin: 4px auto 2px; padding: 5px 14px; border-radius: 99px;
+  font-weight: 900; font-size: 13px; letter-spacing: 1px; color: #20160a;
+  background: linear-gradient(135deg, #ffe08a, var(--accent));
+  box-shadow: 0 6px 16px rgba(255, 180, 34, .4);
+  animation: badgepop .5s .12s both cubic-bezier(.2, .9, .3, 1.5);
+}
+@keyframes badgepop { 0% { transform: scale(0) rotate(-8deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }

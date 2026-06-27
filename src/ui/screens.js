@@ -208,6 +208,32 @@ export class Screens {
     this._$("#t-ok").onclick = onClose;
   }
 
+  // First-drive coach marks: in-context callouts on the live HUD. Non-blocking,
+  // tap (or 7s) to dismiss. Shown once.
+  coach({ mobile, onDone }) {
+    const controls = mobile
+      ? "Hold <b>▲</b> to drive &nbsp;•&nbsp; <b>‹ ›</b> to steer &nbsp;•&nbsp; <b>▼</b> to brake"
+      : "<b>W</b>/<b>↑</b> drive &nbsp;•&nbsp; <b>A&nbsp;D</b>/<b>← →</b> steer &nbsp;•&nbsp; <b>Space</b> brake";
+    const el = document.createElement("div");
+    el.className = "coach";
+    el.innerHTML = `
+      <div class="coach-callout coach-top">
+        <div class="coach-emoji">🧭</div>
+        <div>Follow the <b>arrow</b> and the glowing <b>path</b> on the road. The card up top tells you when to turn.</div>
+      </div>
+      <div class="coach-start">Tap to start driving</div>
+      <div class="coach-callout coach-bottom">
+        <div class="coach-emoji">🚚</div>
+        <div>${controls}</div>
+      </div>`;
+    (document.body || document.documentElement).appendChild(el);
+    let closed = false;
+    const done = () => { if (closed) return; closed = true; el.remove(); if (onDone) onDone(); };
+    el.addEventListener("click", done);
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); done(); }, { passive: false });
+    setTimeout(done, 7000);
+  }
+
   // ---------- Job offer ----------
   jobOffer({ offer, onAccept, onDecline }) {
     this._show(`
@@ -252,7 +278,8 @@ export class Screens {
       : "";
     this._show(`
       <div class="panel center">
-        <h2 style="color:${success ? "var(--good)" : "var(--bad)"}">${success ? "Delivery Complete!" : "Job Failed"}</h2>
+        <h2 class="${success ? "result-win" : "result-lose"}">${success ? "Delivery Complete!" : "Job Failed"}</h2>
+        ${success && perfect ? `<div class="perfect-badge">★ PERFECT RUN ★</div>` : ""}
         <p class="sub">${success ? job.cargo + " delivered to " + job.dropoff.name : "The cargo didn't make it in time."}</p>
         <div class="card" style="text-align:left">
           <div class="results-stat"><span>Payout</span><b style="color:var(--accent)">${success ? "+$" + reward : "$0"}</b></div>

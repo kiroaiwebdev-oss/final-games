@@ -40,6 +40,8 @@ export class Game {
     this.honkCd = 0;
     this.smokeTimer = 0;
     this.cpFined = {};
+    this._lastManeuver = null;
+    this._maneuverCd = 0;
   }
 
   async boot() {
@@ -328,13 +330,27 @@ export class Game {
         this.screens.hide();
         this.state = STATE.DRIVING;
         this.hud.toast(`Job accepted — head to ${offer.pickup.name}`);
+        this.maybeCoach();
       },
       onDecline: () => this.showJobOffer(),
     });
   }
 
+  // First-drive only: in-context coach marks over the live HUD.
+  maybeCoach() {
+    if (this.profile.data.settings.coachDone) return;
+    this.profile.data.settings.coachDone = true;
+    this.profile.save();
+    this.screens.coach({ mobile: this.platform.isMobile() });
+  }
+
   // ---------------- Mission events ----------------
-  onPicked() { this.hud.toast("Cargo loaded! Deliver it now."); }
+  onPicked() {
+    this.sfx.pickup();
+    this.particles.sparks(this.truck.localToWorld([0, 2.4, 0]), 16);
+    this._lastManeuver = null; // re-cue the route to the drop-off
+    this.hud.toast("📦 Cargo loaded! Deliver it now.");
+  }
 
   async onDelivered() {
     const job = this.mission.active;
@@ -623,7 +639,17 @@ export class Game {
     this.hud.setMission(this.mission);
     // turn-by-turn navigation toward the current objective (job target, or depot)
     const navTarget = this.mission.active ? this.mission.target : this.depot.pos;
-    this.hud.setNav(this.nav.update(this.truck.pos, this.truck.heading, navTarget));
+    const instr = this.nav.update(this.truck.pos, this.truck.heading, navTarget);
+    this.hud.setNav(instr);
+    // soft audio cue when a new turn / arrival comes up (not for "go straight")
+    if (this._maneuverCd > 0) this._maneuverCd -= dt;
+    if (instr.type !== this._lastManeuver) {
+      if (this._maneuverCd <= 0 && (instr.type === "left" || instr.type === "right" || instr.type === "uturn" || instr.type === "arrive")) {
+        this.sfx.blip(instr.type === "arrive" ? 820 : 560);
+        this._maneuverCd = 0.7;
+      }
+      this._lastManeuver = instr.type;
+    }
     this.hud.setGauges(this.fuel / this.maxFuel, this.health / this.maxHealth);
     this.hud.setSpeed(this.truck.speedKMH, this.truck.speed < -0.2);
     this.hud.setClock(this.env);
