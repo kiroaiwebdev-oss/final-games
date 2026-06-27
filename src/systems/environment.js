@@ -30,8 +30,8 @@ function sampleStops(t) {
 }
 
 export class Environment {
-  constructor({ dayLength = 200, startTime = 0.34 } = {}) {
-    this.dayLength = dayLength;
+  constructor({ dayLength = 1800, startTime = 0.34 } = {}) {
+    this.dayLength = dayLength;       // seconds for a full day (gentle, not racing)
     this.time = startTime;            // 0..1 fraction of day
     this.weather = "clear";           // fixed — never changes during play
     this.grip = 1;

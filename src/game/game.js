@@ -491,7 +491,7 @@ export class Game {
   }
 
   idleCamera(dt) {
-    const angle = this.time * 0.2;
+    const angle = this.time * 0.08;
     const r = 26;
     this.cam.pos[0] = this.truck.pos[0] + Math.sin(angle) * r;
     this.cam.pos[1] = this.truck.pos[1] + 11;
