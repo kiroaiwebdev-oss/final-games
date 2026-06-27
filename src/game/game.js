@@ -43,6 +43,7 @@ export class Game {
     this._lastManeuver = null;
     this._maneuverCd = 0;
     this.crashCd = 0;
+    this.skidCd = 0;
   }
 
   async boot() {
@@ -83,6 +84,7 @@ export class Game {
     this.markerDepot = new Mesh(gl, buildMarker([1.0, 0.78, 0.1]));
     this.arrow = new Mesh(gl, buildArrow([1, 1, 1]));
     this.chevronMesh = new Mesh(gl, buildChevron([1.0, 0.86, 0.18]));
+    this.brakeMesh = new Mesh(gl, box(0.46, 0.36, 0.16, [1, 1, 1]));
     this.beamMesh = new Mesh(gl, buildBeam());
     this.underglowMesh = new Mesh(gl, buildUnderglow());
     this.roofbarMesh = new Mesh(gl, box(2.0, 0.2, 0.5, [1, 1, 1], [0, 3.8, 4.05]));
@@ -549,6 +551,7 @@ export class Game {
             this.truck.speed *= 0.85;
             this.health = clamp(this.health - kmh * 0.03, 0, this.maxHealth);
             this.particles.sparks(this.truck.localToWorld([0, 0.2, -3]), 3);
+            this.truck._crashJolt = Math.max(this.truck._crashJolt || 0, Math.min(0.32, kmh * 0.004));
             if (kmh > 75 && this.truck.burstWheel < 0 && Math.random() < 0.12) this.burstTyre();
           }
           break;
@@ -564,6 +567,7 @@ export class Game {
           this.breakerCd = 0.6;
           if (this.truck.speedKMH > 35) { this.shake = 0.35; this.truck.speed *= 0.7; this.hud.toast("Speed breaker!"); }
           else this.truck.speed *= 0.9;
+          this.truck._crashJolt = Math.max(this.truck._crashJolt || 0, this.truck.speedKMH > 35 ? 0.3 : 0.16);
           break;
         }
       }
@@ -594,6 +598,17 @@ export class Game {
       this.fuel = clamp(this.fuel - burn, 0, this.maxFuel);
     }
     this.sfx.setEngine(speedFrac, throttle);
+
+    // tyre screech + smoke on hard braking or drifting
+    if (this.skidCd > 0) this.skidCd -= dt;
+    const hardBrake = input.brake() > 0 && this.truck.speed > 0 && this.truck.speedKMH > 38;
+    const drift = input.handbrake() && this.truck.speedKMH > 30;
+    if ((hardBrake || drift) && this.skidCd <= 0) {
+      this.sfx.skid();
+      this.skidCd = 0.55;
+      this.particles.smoke(this.truck.localToWorld([1.1, 0.2, -5.4]));
+      this.particles.smoke(this.truck.localToWorld([-1.1, 0.2, -5.4]));
+    }
 
     // fuel station: refuel + repair (+ fix tyre)
     for (const z of this.world.fuelZones) {
@@ -704,6 +719,20 @@ export class Game {
     this.truck.render(r, { tint: flashing ? [1.4, 0.6, 0.6] : [1, 1, 1] });
 
     if (light.roof) r.draw(this.roofbarMesh, model, { tint: light.roof });
+
+    // brake lights glow red when braking; reverse lights glow white in reverse
+    if (this.truck.braking) {
+      for (const x of [1.1, -1.1]) {
+        const m = mat4.multiply(model, mat4.translation(x, 0.85, -7.5));
+        r.draw(this.brakeMesh, m, { unlit: true, fog: 0, tint: [1.5, 0.12, 0.05], alpha: 0.95 });
+      }
+    }
+    if (this.truck.reversing) {
+      for (const x of [0.55, -0.55]) {
+        const m = mat4.multiply(model, mat4.translation(x, 0.7, -7.5));
+        r.draw(this.brakeMesh, m, { unlit: true, fog: 0, tint: [1.4, 1.4, 1.2], alpha: 0.9 });
+      }
+    }
 
     // headlight beams at night / rain
     if (this.env.isNight() || this.env.isRaining()) {

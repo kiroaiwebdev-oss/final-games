@@ -91,6 +91,27 @@ export class Sfx {
     src.start(t0);
   }
 
+  // Tyre screech: band-passed noise (hard braking / drifting).
+  skid() {
+    this._ensure();
+    if (!this.ctx || this.muted) return;
+    const t0 = this.ctx.currentTime;
+    const dur = 0.5;
+    const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * dur, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+    const src = this.ctx.createBufferSource();
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "bandpass"; filter.frequency.value = 1900; filter.Q.value = 1.1;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.1, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    src.buffer = buffer;
+    src.connect(filter).connect(g).connect(this.ctx.destination);
+    src.start(t0);
+  }
+
   level() {
     this._ensure();
     this._tone(523, 0, 0.12, "triangle", 0.14);

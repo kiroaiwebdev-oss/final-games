@@ -174,6 +174,10 @@ export class Truck {
     // crash jolt decays quickly (applied to the rendered pitch as a nose-dip)
     this._crashJolt = (this._crashJolt || 0) * Math.max(0, 1 - 9 * dt);
 
+    // state for lights / effects
+    this.braking = brake > 0 && this.speed > 0.5;
+    this.reversing = this.speed < -0.3;
+
     return { hitImpulse, speedKMH: this.speedKMH };
   }
 
