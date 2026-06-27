@@ -59,7 +59,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: calc(12px + env(safe-area-inset-top,0px)) var(--safe-r) var(--safe-b) var(--safe-l); }
 #hud button { pointer-events: auto; }
 
-.chip, .stat, .clock, .icon-btn, .hud-mission, .hud-speedo, .gauge .bar {
+.chip, .stat, .clock, .icon-btn, .hud-nav, .hud-speedo, .gauge .bar {
   background: var(--glass); border: 1px solid var(--stroke); backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -83,14 +83,39 @@ button { font-family: inherit; cursor: pointer; }
 }
 .icon-btn:active { transform: scale(.92); }
 
-.hud-mission {
+.hud-nav {
   position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-  border-radius: 14px; padding: 8px 18px; text-align: center; min-width: 230px; max-width: 70vw;
-  box-shadow: var(--shadow); border-color: rgba(255, 180, 34, 0.32);
+  display: flex; align-items: center; gap: 10px;
+  border-radius: 16px; padding: 8px 12px; box-shadow: var(--shadow);
+  min-width: 260px; max-width: min(440px, 50vw);
+  border-color: rgba(255, 255, 255, 0.12);
 }
-.mission-title { font-weight: 800; font-size: clamp(13px, 3.6vw, 15px); }
-.mission-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.mission-dist { font-size: 13px; color: var(--accent); font-weight: 800; margin-top: 3px; }
+.nav-arrow {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 12px;
+  display: grid; place-items: center; font-size: 27px; font-weight: 900; color: #fff;
+  background: var(--blue); box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
+  transition: background .2s, transform .15s;
+}
+.nav-mid { flex: 1 1 auto; min-width: 0; text-align: left; }
+.nav-instruction { font-weight: 800; font-size: clamp(14px, 3.6vw, 16px); line-height: 1.12; }
+.nav-objective {
+  font-size: 12px; color: var(--muted); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nav-objective b { color: var(--text); font-weight: 700; }
+.nav-pay { color: var(--accent); font-weight: 800; margin-left: 6px; }
+.nav-side { flex: 0 0 auto; text-align: right; min-width: 50px; }
+.nav-dist { font-weight: 900; font-size: clamp(15px, 4vw, 18px); color: var(--text); line-height: 1; }
+.nav-timer { font-size: 12px; color: var(--muted); font-weight: 800; margin-top: 3px; }
+.nav-timer.low { color: var(--bad); animation: navblink 1s steps(2, start) infinite; }
+@keyframes navblink { 50% { opacity: .3; } }
+
+/* maneuver arrow colour by type */
+.hud-nav.nav-straight .nav-arrow { background: linear-gradient(135deg, #4f8cff, #6aa0ff); }
+.hud-nav.nav-left .nav-arrow, .hud-nav.nav-right .nav-arrow { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #20160a; }
+.hud-nav.nav-uturn .nav-arrow { background: linear-gradient(135deg, #ff7a18, #ff5470); color: #fff; }
+.hud-nav.nav-arrive .nav-arrow { background: linear-gradient(135deg, #2fd07a, #57e08f); color: #06301c; }
+.hud-nav.nav-none .nav-arrow { background: rgba(255, 255, 255, .16); }
 
 .hud-gauges { position: absolute; bottom: calc(20px + var(--safe-b)); left: calc(18px + var(--safe-l)); display: flex; flex-direction: column; gap: 9px; width: clamp(140px, 30vw, 190px); }
 .gauge-label { font-size: 10px; letter-spacing: 2px; color: var(--muted); margin-bottom: 3px; font-weight: 700; }
@@ -210,7 +235,6 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ---------------- Responsive tweaks ---------------- */
 @media (max-width: 560px) {
-  .hud-mission { min-width: 0; left: 50%; }
   .stat.money { font-size: 15px; padding: 7px 11px; }
 }
 /* short landscape (phones held sideways): keep speedo clear of gas pad */
@@ -224,10 +248,10 @@ button { font-family: inherit; cursor: pointer; }
    TOUCH / MOBILE layout — keep HUD clear of the control pads
    ============================================================ */
 body.touch-mode .hud-gauges {
-  /* move fuel/damage to top-left, stacked under the money/level chips */
+  /* move fuel/damage to top-left, below the nav card */
   bottom: auto; left: calc(12px + var(--safe-l));
-  top: calc(60px + env(safe-area-inset-top, 0px));
-  width: clamp(124px, 32vw, 165px); gap: 6px;
+  top: calc(116px + env(safe-area-inset-top, 0px));
+  width: clamp(120px, 30vw, 160px); gap: 6px;
 }
 body.touch-mode .hud-speedo {
   /* compact pill, centered just ABOVE the control pads — a big floating
@@ -242,9 +266,11 @@ body.touch-mode .speed-val { font-size: clamp(22px, 6vw, 28px); line-height: 1; 
 body.touch-mode .speed-unit { font-size: 10px; }
 body.touch-mode .gear-val { position: static; bottom: auto; font-size: 13px; margin-left: 2px; }
 
-body.touch-mode .hud-mission { max-width: 56vw; min-width: 0; padding: 7px 12px; }
-body.touch-mode .mission-title { font-size: 12px; }
-body.touch-mode .mission-sub { font-size: 10px; }
+body.touch-mode .nav-arrow { width: 38px; height: 38px; font-size: 23px; border-radius: 10px; }
+body.touch-mode .nav-instruction { font-size: 13px; }
+body.touch-mode .nav-objective { font-size: 10.5px; }
+body.touch-mode .nav-dist { font-size: 15px; }
+body.touch-mode .nav-timer { font-size: 11px; }
 body.touch-mode .hud-top-left { gap: 6px; }
 body.touch-mode .stat { padding: 6px 10px; font-size: 14px; border-radius: 12px; }
 body.touch-mode .icon-btn { width: 42px; height: 42px; }
@@ -255,9 +281,16 @@ body.touch-mode .clock { padding: 7px 10px; font-size: 12px; }
   .tbtn { width: 58px; height: 58px; font-size: 24px; }
   #touch-controls .pad { gap: 12px; bottom: calc(18px + var(--safe-b)); }
 }
-/* narrow phones: keep the top HUD row from crowding (banner vs buttons/minimap) */
+/* narrow widths (portrait phones, small windows): the nav card gets its own
+   row below the status chips, and the minimap drops below it — no crowding. */
+@media (max-width: 720px) {
+  .hud-nav {
+    top: calc(54px + env(safe-area-inset-top, 0px));
+    min-width: 0; width: auto; max-width: 94vw;
+  }
+  .minimap { top: calc(116px + env(safe-area-inset-top, 0px)); }
+}
 @media (max-width: 430px) {
-  body.touch-mode .hud-mission { max-width: 44vw; }
   body.touch-mode #hud-clock { display: none; } /* time-of-day still shown via lighting */
 }
 /* landscape phones: pads lower & speedo pill sits low-center between the pads */
@@ -292,7 +325,7 @@ body.touch-mode .clock { padding: 7px 10px; font-size: 12px; }
   border-radius: 16px; border: 1px solid var(--stroke); box-shadow: var(--shadow);
   background: rgba(10,14,24,0.5); backdrop-filter: blur(6px); pointer-events: none;
 }
-body.touch-mode .minimap { width: 96px; height: 96px; top: 60px; right: 10px; }
+body.touch-mode .minimap { width: 96px; height: 96px; top: calc(116px + env(safe-area-inset-top, 0px)); right: 10px; }
 
 /* Garage / cosmetics live preview: dim only one side so the orbiting truck shows */
 @media (min-width: 760px) {

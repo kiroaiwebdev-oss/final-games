@@ -252,6 +252,18 @@ export function buildArrow(color) {
   return out;
 }
 
+// Flat ground chevron ">" pointing +Z (forward), for the on-road route trail.
+export function buildChevron(color) {
+  const g = new Geometry();
+  const c = color || [1.0, 0.85, 0.2];
+  const up = [0, 1, 0];
+  const P = (x, z) => [x, 0, z];
+  // left arm + right arm forming a thick chevron
+  g.quad(P(-0.95, 0.0), P(0.0, 0.95), P(0.0, 0.0), P(-0.6, -0.55), up, c);
+  g.quad(P(0.0, 0.95), P(0.95, 0.0), P(0.6, -0.55), P(0.0, 0.0), up, c);
+  return g;
+}
+
 function coneAt(r, h, color, x, y, z) {
   const g = cone(r, h, 8, color);
   return new Geometry().merge(g, mat4.translation(x, y, z));

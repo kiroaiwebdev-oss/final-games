@@ -6,9 +6,12 @@ export class HUD {
       money: document.getElementById("hud-money"),
       level: document.getElementById("hud-level"),
       xp: document.getElementById("hud-xp"),
-      missionTitle: document.getElementById("mission-title"),
-      missionSub: document.getElementById("mission-sub"),
-      missionDist: document.getElementById("mission-dist"),
+      navCard: document.getElementById("hud-nav"),
+      navArrowIc: document.getElementById("nav-arrow-ic"),
+      navInstruction: document.getElementById("nav-instruction"),
+      navObjective: document.getElementById("nav-objective"),
+      navDist: document.getElementById("nav-dist"),
+      navTimer: document.getElementById("nav-timer"),
       fuel: document.getElementById("fuel-bar"),
       damage: document.getElementById("damage-bar"),
       speed: document.getElementById("speed-val"),
@@ -43,25 +46,44 @@ export class HUD {
     this.el.xp.style.width = (profile.xpProgress().frac * 100).toFixed(1) + "%";
   }
 
+  // Objective line + countdown timer (lives in the nav card).
   setMission(mission) {
-    if (!mission.active) {
-      this.el.missionTitle.textContent = "No active job";
-      this.el.missionSub.textContent = "Visit Central Depot (yellow marker) for work";
-      this.el.missionDist.textContent = "";
+    if (!mission || !mission.active) {
+      this.el.navObjective.textContent = "Return to Central Depot for a job";
+      this.el.navTimer.textContent = "";
+      this.el.navTimer.classList.remove("low");
       return;
     }
     const job = mission.active;
     const verb = job.phase === "pickup" ? "Pick up" : "Deliver";
-    const tag = job.type && job.type.tag ? `  ${job.type.tag}` : "";
-    this.el.missionTitle.textContent = `${verb}: ${job.cargo}${tag}`;
-    this.el.missionSub.textContent = `→ ${mission.targetName}   •   ${Math.ceil(job.timeLeft)}s   •   $${job.reward}`;
+    const tag = job.type && job.type.tag ? ` ${job.type.tag}` : "";
+    this.el.navObjective.innerHTML =
+      `${verb} ${job.cargo} → <b>${mission.targetName}</b>` +
+      `<span class="nav-pay">$${job.reward}</span>${tag}`;
+    const t = Math.max(0, Math.ceil(job.timeLeft));
+    const mm = Math.floor(t / 60), ss = t % 60;
+    this.el.navTimer.textContent = mm > 0 ? `${mm}:${String(ss).padStart(2, "0")}` : `${ss}s`;
+    this.el.navTimer.classList.toggle("low", t <= 20);
   }
 
-  setDistance(meters) {
-    if (meters <= 0) { this.el.missionDist.textContent = ""; return; }
-    this.el.missionDist.textContent = meters > 999
-      ? (meters / 1000).toFixed(2) + " km"
-      : Math.round(meters) + " m";
+  // Turn-by-turn maneuver: big arrow + instruction + distance to next maneuver.
+  setNav(instr) {
+    if (!this.el.navCard) return;
+    const card = this.el.navCard;
+    card.classList.remove("nav-straight", "nav-left", "nav-right", "nav-arrive", "nav-uturn", "nav-none");
+    if (!instr || instr.type === "none") {
+      card.classList.add("nav-none");
+      this.el.navArrowIc.textContent = "•";
+      this.el.navInstruction.textContent = "Stand by…";
+      this.el.navDist.textContent = "";
+      return;
+    }
+    const glyph = { straight: "↑", left: "←", right: "→", uturn: "↩", arrive: "◎" }[instr.bigArrow] || "↑";
+    card.classList.add("nav-" + (instr.bigArrow || "straight"));
+    this.el.navArrowIc.textContent = glyph;
+    this.el.navInstruction.textContent = instr.text || "";
+    const m = instr.distance || 0;
+    this.el.navDist.textContent = m > 999 ? (m / 1000).toFixed(1) + " km" : Math.round(m) + " m";
   }
 
   setGauges(fuelFrac, dmgFrac) {
@@ -86,7 +108,7 @@ export class HUD {
     this.el.clock.textContent = `${icon} ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }
 
-  drawMinimap(world, pos, heading, target) {
+  drawMinimap(world, pos, heading, target, route) {
     const cv = this.el.minimap;
     if (!cv) return;
     if (cv.width !== 132) { cv.width = 132; cv.height = 132; }
@@ -102,6 +124,13 @@ export class HUD {
     for (let g = -e; g <= e; g += b) {
       ctx.beginPath(); ctx.moveTo(X(-e), Y(g)); ctx.lineTo(X(e), Y(g)); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(X(g), Y(-e)); ctx.lineTo(X(g), Y(e)); ctx.stroke();
+    }
+    // planned route line
+    if (route && route.length > 1) {
+      ctx.strokeStyle = "rgba(255,184,40,0.95)"; ctx.lineWidth = 2.6; ctx.lineJoin = "round";
+      ctx.beginPath(); ctx.moveTo(X(route[0][0]), Y(route[0][1]));
+      for (let i = 1; i < route.length; i++) ctx.lineTo(X(route[i][0]), Y(route[i][1]));
+      ctx.stroke();
     }
     if (target) {
       ctx.fillStyle = "#36d07a";

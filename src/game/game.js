@@ -10,11 +10,12 @@ import { Truck } from "./truck.js";
 import { ChaseCamera } from "./camera.js";
 import { Traffic } from "./traffic.js";
 import { Particles } from "./particles.js";
-import { buildMarker, buildArrow, buildBeam, buildUnderglow, buildSky, buildShadowQuad } from "./models.js";
+import { buildMarker, buildArrow, buildBeam, buildUnderglow, buildSky, buildShadowQuad, buildChevron } from "./models.js";
 import { makeTextures } from "../core/textures.js";
 
 import { Profile } from "../systems/profile.js";
 import { MissionManager } from "../systems/missions.js";
+import { Navigator } from "../systems/navigation.js";
 import { Environment } from "../systems/environment.js";
 import { checkAchievements, updateRecords } from "../systems/achievements.js";
 import { Sfx } from "../audio/audio.js";
@@ -59,6 +60,7 @@ export class Game {
     this.map = getMap("indus_city");
     this.world = new World(gl, this.map, this.tex);
     this.mission = new MissionManager(this.world);
+    this.nav = new Navigator(this.world);
     this.depot = this.world.hubs.find((h) => h.name === DEPOT_NAME) || this.world.hubs[0];
 
     this.env = new Environment();
@@ -77,6 +79,7 @@ export class Game {
     this.markerDeliver = new Mesh(gl, buildMarker([0.25, 1.0, 0.45]));
     this.markerDepot = new Mesh(gl, buildMarker([1.0, 0.78, 0.1]));
     this.arrow = new Mesh(gl, buildArrow([1, 1, 1]));
+    this.chevronMesh = new Mesh(gl, buildChevron([1.0, 0.86, 0.18]));
     this.beamMesh = new Mesh(gl, buildBeam());
     this.underglowMesh = new Mesh(gl, buildUnderglow());
     this.roofbarMesh = new Mesh(gl, box(2.0, 0.2, 0.5, [1, 1, 1], [0, 3.8, 4.05]));
@@ -607,10 +610,8 @@ export class Game {
       if (ev === "picked") this.onPicked();
       else if (ev === "delivered") { this.onDelivered(); return; }
       else if (ev === "timeout") { this.onTimeout(); return; }
-      this.hud.setDistance(this.mission.distanceToTarget(this.truck.pos));
     } else {
       const dDepot = vec3.dist2D(this.truck.pos, this.depot.pos);
-      this.hud.setDistance(dDepot);
       if (dDepot < 10 && this.offerCooldown <= 0 && Math.abs(this.truck.speed) < 4) {
         this.offerCooldown = 3;
         this.showJobOffer();
@@ -620,10 +621,13 @@ export class Game {
 
     this.hud.setProfile(this.profile);
     this.hud.setMission(this.mission);
+    // turn-by-turn navigation toward the current objective (job target, or depot)
+    const navTarget = this.mission.active ? this.mission.target : this.depot.pos;
+    this.hud.setNav(this.nav.update(this.truck.pos, this.truck.heading, navTarget));
     this.hud.setGauges(this.fuel / this.maxFuel, this.health / this.maxHealth);
     this.hud.setSpeed(this.truck.speedKMH, this.truck.speed < -0.2);
     this.hud.setClock(this.env);
-    this.hud.drawMinimap(this.world, this.truck.pos, this.truck.heading, this.mission.target || this.depot.pos);
+    this.hud.drawMinimap(this.world, this.truck.pos, this.truck.heading, this.mission.target || this.depot.pos, this.nav.route);
   }
 
   // ---------------- Render ----------------
@@ -691,6 +695,7 @@ export class Game {
 
   renderMarkers() {
     const r = this.renderer;
+    if (this.state === STATE.DRIVING) this.drawRouteChevrons();
     const pulse = 1 + Math.sin(this.time * 3) * 0.08;
     const bob = Math.sin(this.time * 2) * 0.6;
     const drawMarker = (mesh, pos) => {
@@ -704,6 +709,37 @@ export class Game {
       drawMarker(isPickup ? this.markerPickup : this.markerDeliver, this.mission.target);
     } else if (this.state === STATE.DRIVING) {
       drawMarker(this.markerDepot, this.depot.pos);
+    }
+  }
+
+  // Glowing chevrons flowing along the planned route — the on-road guide trail.
+  drawRouteChevrons() {
+    const route = this.nav && this.nav.route;
+    if (!route || route.length < 2) return;
+    const r = this.renderer;
+    const isPickup = this.mission.active && this.mission.active.phase === "pickup";
+    const tint = isPickup ? [0.3, 0.85, 1.0] : [1.0, 0.82, 0.16];
+    const STEP = 7, MAX = 74, START = 5;
+    let arc = 0, next = START, idx = 0;
+    for (let s = 0; s < route.length - 1; s++) {
+      const a = route[s], b = route[s + 1];
+      const dx = b[0] - a[0], dz = b[1] - a[1];
+      const segLen = Math.hypot(dx, dz);
+      if (segLen < 0.01) continue;
+      const beta = Math.atan2(dx, dz);   // bearing along this segment
+      while (next <= arc + segLen && next <= MAX) {
+        const t = (next - arc) / segLen;
+        const px = a[0] + dx * t, pz = a[1] + dz * t;
+        // a bright pulse flows toward the destination
+        const wave = 0.5 + 0.5 * Math.sin(this.time * 3.2 - idx * 0.7);
+        const al = 0.26 + 0.5 * wave;
+        const sc = 1.9 + wave * 0.3;
+        const m = mat4.compose([px, 0.14, pz], [0, beta, 0], [sc, 1, sc * 1.2]);
+        r.draw(this.chevronMesh, m, { unlit: true, fog: 1, writeDepth: false, tint, alpha: al });
+        idx++; next += STEP;
+      }
+      arc += segLen;
+      if (next > MAX) break;
     }
   }
 }
