@@ -8,6 +8,7 @@ export class PlatformAdapter {
   constructor() {
     this.name = "base";
     this.ready = false;
+    this.audioMuted = false; // platform-requested audio mute (e.g. CrazyGames toolbar)
   }
 
   // Called once at boot. SDKs do their init/handshake here.

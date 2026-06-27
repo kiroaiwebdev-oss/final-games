@@ -36,6 +36,15 @@ export function setAdAudioMuted(muted) {
   } catch (e) { /* audio muting is best-effort */ }
 }
 
+// Platform-requested mute (e.g. the CrazyGames audio toggle) — takes priority
+// over the player's in-game audio setting, per CrazyGames requirements.
+export function setPlatformAudioMuted(muted) {
+  try {
+    const g = typeof window !== "undefined" ? window.__GAME__ : null;
+    if (g && g.sfx && typeof g.sfx.platformMute === "function") g.sfx.platformMute(muted);
+  } catch (e) { /* best-effort */ }
+}
+
 // Promise that always settles — wraps a value-or-throwing call so adapter
 // methods can never reject into the game loop.
 export async function safe(fn, fallback) {

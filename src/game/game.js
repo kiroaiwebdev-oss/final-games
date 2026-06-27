@@ -287,6 +287,7 @@ export class Game {
     this.hud.show(this.platform.isMobile());
     this.platform.gameplayStart();
     this.sfx.startEngine();
+    this.sfx.platformMute(!!this.platform.audioMuted); // honor CrazyGames audio toggle
     if (!this.profile.data.settings.tutorialDone) { this.showTutorial(); return; }
     if (!this.mission.active) this.showJobOffer();
   }
@@ -372,7 +373,7 @@ export class Game {
     if (this.env.isNight()) st.nightJobs++;
     if (this.env.isRaining()) st.rainJobs++;
     this.sfx.cash();
-    if (leveledUp) { this.sfx.level(); this.hud.toast(`⭐ LEVEL UP! Driver Lv ${this.profile.level}`); }
+    if (leveledUp) { this.sfx.level(); this.platform.happyTime(); this.hud.toast(`⭐ LEVEL UP! Driver Lv ${this.profile.level}`); }
 
     const fresh = checkAchievements(this.profile);
     updateRecords(this.profile, this.platform);
@@ -410,7 +411,6 @@ export class Game {
   async afterResults() {
     if (this.jobsSinceAd >= 3) {
       this.jobsSinceAd = 0;
-      this.platform.happyTime();
       await this.platform.showInterstitial();
     }
     this.screens.hide();
@@ -429,7 +429,7 @@ export class Game {
     this.screens.stranded({
       title: "Out of Fuel", msg: "Your tank is empty. Watch an ad for a free refuel.",
       adLabel: "▶ WATCH AD — FREE REFUEL",
-      onWatchAd: async () => { const ok = await this.platform.showRewardedAd(); if (ok) { this.fuel = this.maxFuel; this.resumeFromStrand(); } },
+      onWatchAd: async () => { await this.platform.showRewardedAd(); this.fuel = this.maxFuel; this.resumeFromStrand(); },
       onPay: this.profile.canAfford(150) ? () => { this.profile.spend(150); this.fuel = this.maxFuel; this.profile.save(); this.resumeFromStrand(); } : null,
       payCost: 150,
       onMenu: () => this.gotoMenu(),
@@ -442,7 +442,7 @@ export class Game {
     this.screens.stranded({
       title: "Engine Wrecked", msg: "Too much damage — the truck broke down. Repair to continue.",
       adLabel: "▶ WATCH AD — FREE REPAIR",
-      onWatchAd: async () => { const ok = await this.platform.showRewardedAd(); if (ok) { this.repairAll(); this.resumeFromStrand(); } },
+      onWatchAd: async () => { await this.platform.showRewardedAd(); this.repairAll(); this.resumeFromStrand(); },
       onPay: this.profile.canAfford(200) ? () => { this.profile.spend(200); this.repairAll(); this.profile.save(); this.resumeFromStrand(); } : null,
       payCost: 200,
       onMenu: () => this.gotoMenu(),
@@ -501,7 +501,7 @@ export class Game {
 
   simulate(dt) {
     const input = this.input;
-    if (input.pressed("Escape") || input.pressed("p") || input.pressed("P")) { this.togglePause(); return; }
+    if (input.pressed("p") || input.pressed("P")) { this.togglePause(); return; }
     if (input.pressed("c") || input.pressed("C")) this.cam.toggle();
     if (input.pressed("h") || input.pressed("H")) this.honk();
 

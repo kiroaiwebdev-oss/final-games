@@ -22,12 +22,15 @@ export class Sfx {
   setMuted(m) { this.muted = m; }
 
   // Temporarily silence audio for the duration of an ad WITHOUT changing the
-  // player's own mute preference. Suspends/resumes the AudioContext.
-  adMute(on) {
-    if (!this.ctx) return; // nothing created yet -> nothing to mute (don't create it here)
+  // player's own mute preference. Also supports a platform-requested mute
+  // (e.g. CrazyGames' audio toggle), which takes priority over in-game audio.
+  adMute(on) { this._adMuted = on; this._applySuspend(); }
+  platformMute(on) { this._platMuted = on; this._applySuspend(); }
+  _applySuspend() {
+    if (!this.ctx) return; // nothing created yet -> nothing to mute
     try {
-      if (on) { this.ctx.suspend(); }
-      else if (!this.muted) { this.ctx.resume(); }
+      if (this._adMuted || this._platMuted) this.ctx.suspend();
+      else this.ctx.resume();
     } catch (e) { /* best-effort */ }
   }
 

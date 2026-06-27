@@ -35,7 +35,7 @@ export class Screens {
           ${daily ? "CLAIM DAILY REWARD" : "DAILY CLAIMED ✓"}
         </button>
         <button class="btn ghost" id="m-mute">SOUND: ${muted ? "OFF" : "ON"}</button>
-        <p class="sub mt" style="font-size:12px">Drive: WASD/Arrows • Handbrake: Space • Horn: H • Camera: C • Pause: Esc</p>
+        <p class="sub mt" style="font-size:12px">Drive: WASD/Arrows • Handbrake: Space • Horn: H • Camera: C • Pause: P</p>
       </div>`);
     this._$("#m-play").onclick = onPlay;
     this._$("#m-garage").onclick = onGarage;
