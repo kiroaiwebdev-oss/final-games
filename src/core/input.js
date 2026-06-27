@@ -39,7 +39,9 @@ export class Input {
   }
 
   // axis helpers
-  steer() { return (this.anyDown("ArrowLeft", "a", "A") ? -1 : 0) + (this.anyDown("ArrowRight", "d", "D") ? 1 : 0); }
+  // Camera looks along the truck's forward direction, where screen-left = a
+  // HEADING INCREASE. So LEFT must be +1 and RIGHT -1 (matches the visual turn).
+  steer() { return (this.anyDown("ArrowLeft", "a", "A") ? 1 : 0) + (this.anyDown("ArrowRight", "d", "D") ? -1 : 0); }
   throttle() { return this.anyDown("ArrowUp", "w", "W") ? 1 : 0; }
   brake() { return this.anyDown("ArrowDown", "s", "S") ? 1 : 0; }
   handbrake() { return this.down(" "); }
