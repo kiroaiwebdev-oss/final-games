@@ -98,11 +98,12 @@ export class Truck {
     let nx = this.pos[0] + fwd[0] * this.speed * dt;
     let nz = this.pos[2] + fwd[1] * this.speed * dt;
 
-    // ---- Collisions (circle vs AABB) with a realistic velocity response ----
-    // We push the truck out of the obstacle, then kill only the velocity that
-    // points INTO the surface (so head-on hits stop/recoil while glancing hits
-    // slide along the wall) — instead of always dumping 70% of the speed.
-    const r = this.dims.halfWidth + 0.6;
+    // ---- Collisions (multi-point capsule vs AABB) with realistic response ----
+    // The truck is long (~13 units), so testing only its CENTER let the nose
+    // bury into walls. We sample several points down the truck's length so the
+    // BUMPER stops at the wall surface instead of passing through it.
+    const r = this.dims.halfWidth + 0.45;     // ~half truck width + small margin
+    const OFFS = [3.6, 0, -3.6, -6.0];        // nose .. tail, along the body
     let hitImpulse = 0;
     let hitN = null;       // normal of the strongest contact (points away from wall)
     let hitHeadOn = 0;     // 0 = glancing, 1 = dead head-on
@@ -118,31 +119,33 @@ export class Truck {
       if (into >= hitHeadOn) { hitHeadOn = into; hitN = [Nx, Nz]; }
     };
 
+    const testPointVsBox = (sx, sz, o) => {
+      const cx = clamp(sx, o.x - o.hw, o.x + o.hw);
+      const cz = clamp(sz, o.z - o.hd, o.z + o.hd);
+      const dx = sx - cx, dz = sz - cz, d2 = dx * dx + dz * dz;
+      if (d2 >= r * r) return;
+      const d = Math.sqrt(d2);
+      if (d > 1e-3) { considerHit(dx / d, dz / d, r - d); return; }
+      // sample buried inside the box: eject along the shallowest axis
+      const penX = (o.hw + r) - Math.abs(sx - o.x);
+      const penZ = (o.hd + r) - Math.abs(sz - o.z);
+      if (penX < penZ) considerHit(sx - o.x >= 0 ? 1 : -1, 0, penX);
+      else considerHit(0, sz - o.z >= 0 ? 1 : -1, penZ);
+    };
+
     if (world) {
       for (const o of world.obstacles) {
-        const cx = clamp(nx, o.x - o.hw, o.x + o.hw);
-        const cz = clamp(nz, o.z - o.hd, o.z + o.hd);
-        const dx = nx - cx, dz = nz - cz;
-        const d2 = dx * dx + dz * dz;
-        if (d2 < r * r) {
-          const d = Math.sqrt(d2);
-          if (d > 1e-3) {
-            considerHit(dx / d, dz / d, r - d);
-          } else {
-            // center buried inside the box: eject along the shallowest axis
-            const penX = (o.hw + r) - Math.abs(nx - o.x);
-            const penZ = (o.hd + r) - Math.abs(nz - o.z);
-            if (penX < penZ) considerHit(nx - o.x >= 0 ? 1 : -1, 0, penX);
-            else considerHit(0, nz - o.z >= 0 ? 1 : -1, penZ);
-          }
-        }
+        for (const off of OFFS) testPointVsBox(nx + fwd[0] * off, nz + fwd[1] * off, o);
       }
-      // perimeter walls
+      // perimeter walls — checked along the whole body so the ends can't cross
       const lim = world.borderLimit || 9999;
-      if (nx > lim) considerHit(-1, 0, nx - lim);
-      else if (nx < -lim) considerHit(1, 0, -lim - nx);
-      if (nz > lim) considerHit(0, -1, nz - lim);
-      else if (nz < -lim) considerHit(0, 1, -lim - nz);
+      for (const off of OFFS) {
+        const sx = nx + fwd[0] * off, sz = nz + fwd[1] * off;
+        if (sx > lim) considerHit(-1, 0, sx - lim);
+        else if (sx < -lim) considerHit(1, 0, -lim - sx);
+        if (sz > lim) considerHit(0, -1, sz - lim);
+        else if (sz < -lim) considerHit(0, 1, -lim - sz);
+      }
     }
 
     if (hitN) {
