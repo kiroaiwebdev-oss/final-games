@@ -15,7 +15,7 @@ export class PlayHopAdapter extends PlatformAdapter {
   constructor() {
     super();
     this.name = "playhop";
-    this.prefix = "cargo_hauler::";
+    this.prefix = "haulix::";
     this.bridge = null;
   }
 

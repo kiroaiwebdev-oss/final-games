@@ -16,7 +16,7 @@ export class CrazyGamesAdapter extends PlatformAdapter {
   constructor() {
     super();
     this.name = "crazygames";
-    this.prefix = "cargo_hauler::";
+    this.prefix = "haulix::";
     this.sdk = null;
     this.envOk = false; // true only on the "local" / "crazygames" environments
   }

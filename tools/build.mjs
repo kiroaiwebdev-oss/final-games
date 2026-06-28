@@ -1,4 +1,4 @@
-// Per-platform build & packaging for Cargo Hauler.
+// Per-platform build & packaging for Haulix.
 //
 //   node tools/build.mjs
 //

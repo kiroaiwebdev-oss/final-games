@@ -18,8 +18,8 @@ export class Screens {
     const daily = profile.dailyAvailable();
     this._show(`
       <div class="panel center">
-        <h1>CARGO HAULER</h1>
-        <p class="sub">Truck Simulator — ${mapName}</p>
+        <h1>HAULIX</h1>
+        <p class="sub">City Delivery — ${mapName}</p>
         <div class="row" style="justify-content:center;gap:16px;margin:6px 0 4px">
           <div><div style="font-size:12px;color:var(--muted)">DRIVER LV</div><div style="font-size:24px;font-weight:900">${profile.level}</div></div>
           <div><div style="font-size:12px;color:var(--muted)">BALANCE</div><div style="font-size:24px;font-weight:900;color:var(--accent)">$${profile.money.toLocaleString()}</div></div>

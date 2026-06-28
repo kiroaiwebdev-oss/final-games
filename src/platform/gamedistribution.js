@@ -20,7 +20,7 @@ export class GameDistributionAdapter extends PlatformAdapter {
   constructor() {
     super();
     this.name = "gamedistribution";
-    this.prefix = "cargo_hauler::";
+    this.prefix = "haulix::";
     this.sdk = null;
     this._rewardGranted = false;
   }

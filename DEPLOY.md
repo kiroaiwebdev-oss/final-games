@@ -1,4 +1,4 @@
-# Deploy Guide — Cargo Hauler
+# Deploy Guide — Haulix
 
 One codebase, one build command, five upload-ready packages.
 

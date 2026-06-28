@@ -14,7 +14,7 @@ export class Y8Adapter extends PlatformAdapter {
   constructor() {
     super();
     this.name = "y8";
-    this.prefix = "cargo_hauler::";
+    this.prefix = "haulix::";
     this.id = null;
   }
 

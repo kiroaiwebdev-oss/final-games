@@ -8,7 +8,7 @@ export class StandaloneAdapter extends PlatformAdapter {
   constructor() {
     super();
     this.name = "standalone";
-    this.prefix = "cargo_hauler::";
+    this.prefix = "haulix::";
   }
 
   async init() { this.ready = true; }
